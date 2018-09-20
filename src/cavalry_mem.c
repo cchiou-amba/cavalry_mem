@@ -108,6 +108,10 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		printf("Invalid mem alloc param\n");
 		return -1;
 	}
+	if (*psize == 0) {
+		printf("Invalid mem alloc size: %lu\n", *psize);
+		return -1;
+	}
 
 	memset(&cv_mem, 0, sizeof(cv_mem));
 	cv_mem.length = *psize;
