@@ -126,7 +126,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 
 		virt = mmap(NULL, cv_mem.length, PROT_WRITE, MAP_SHARED, priv->fd_cav,
 			cv_mem.offset);
-		if (virt == NULL) {
+		if (virt == MAP_FAILED) {
 			perror("mmap cavalry mem err");
 			printf("mem free since mmap err: phys: 0x%lx, size: 0x%lx\n",
 				cv_mem.offset, cv_mem.length);
