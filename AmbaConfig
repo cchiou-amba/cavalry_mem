@@ -32,6 +32,6 @@
 config BUILD_AMBARELLA_PACKAGE_CAVALRY_MEM
 	bool "Build Ambarella cavalry memory library"
 	default n
-	depends on (CONFIG_ARCH_CV22 || CONFIG_ARCH_CV2)
+	depends on (CONFIG_ARCH_CV22 || CONFIG_ARCH_CV2 || CONFIG_ARCH_CV25)
 	help
 		Build Ambarella cavalry memory library
