@@ -39,7 +39,8 @@ include $(CLEAR_VARS)
 LOCAL_SRCS      := $(wildcard $(LOCAL_PATH)/src/*.c)
 LOCAL_CFLAGS    := -fvisibility=hidden \
 	-I$(LOCAL_PATH)/inc \
-	-I$(LOCAL_PATH)/src
+	-I$(LOCAL_PATH)/src \
+	-I$(AMB_TOPDIR)/include/cavalry
 
 LOCAL_LDFLAGS   :=
 
