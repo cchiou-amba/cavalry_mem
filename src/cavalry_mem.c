@@ -47,7 +47,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20180927,
+	.mod_time = 0x20181213,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -128,7 +128,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 			cv_mem.offset);
 		if (virt == MAP_FAILED) {
 			perror("mmap cavalry mem err");
-			printf("mem free since mmap err: phys: 0x%lx, size: 0x%lx\n",
+			printf("mem free since mmap err: phys: 0x%08lx, size: 0x%08lx\n",
 				cv_mem.offset, cv_mem.length);
 			if (ioctl(priv->fd_cav, CAVALRY_FREE_MEM, &cv_mem) < 0) {
 				perror("CAVALRY_ALLOC_MEM");
@@ -140,7 +140,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		*pphys = cv_mem.offset;
 
 		if (priv->verbose) {
-			printf("mem alloc: phys: 0x%lx, size: %lu, virt: %p.\n",
+			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
 				cv_mem.offset, cv_mem.length, virt);
 		}
 	}while (0);
@@ -175,8 +175,8 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 	}
 
 	if (priv->verbose) {
-		printf("mem free: phys: 0x%lx, size: %lu, virt: %p.\n",
-			cv_mem.offset, cv_mem.length, virt);
+		printf("mem free: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
+			cv_mem.offset, size, virt);
 	}
 
 	return rval;
