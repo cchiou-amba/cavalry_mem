@@ -138,6 +138,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		}
 		*pvirt = virt;
 		*pphys = cv_mem.offset;
+		*psize = cv_mem.length;
 
 		if (priv->verbose) {
 			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
