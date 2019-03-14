@@ -47,7 +47,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20181213,
+	.mod_time = 0x20190314,
 	.description = "Cavalry Memory Allocator Library",
 };
 
