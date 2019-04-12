@@ -74,8 +74,14 @@ AMBA_API int cavalry_mem_alloc(INOUT unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
 AMBA_API int cavalry_mem_free(IN unsigned long size,
 	IN unsigned long phys, IN void *virt);
-AMBA_API int cavalry_mem_sync_cache(IN unsigned long size,
-	IN unsigned long phys, IN uint8_t clean, IN uint8_t invalid);
+
+
+/* cavalry_mem_sync_cache:
+  *   clean: do after arm write   (cache -> dram)
+  * invalid: do before arm read (dram -> cache) */
+AMBA_API int cavalry_mem_sync_cache(
+	IN unsigned long size, IN unsigned long phys,
+	IN uint8_t clean, IN uint8_t invalid);
 
 #ifdef __cplusplus
 }
