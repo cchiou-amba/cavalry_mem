@@ -159,8 +159,8 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		//*psize = cv_mem.length;
 
 		if (priv->verbose) {
-			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
-				cv_mem.offset, cv_mem.length, virt);
+			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, align_size: 0x%08lx, virt: %p.\n",
+				cv_mem.offset, *psize, cv_mem.length, virt);
 		}
 	}while (0);
 
@@ -196,8 +196,8 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 	}
 
 	if (priv->verbose) {
-		printf("mem free: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
-			cv_mem.offset, size, virt);
+		printf("mem free: phys: 0x%08lx, size: 0x%08lx, align_size: 0x%08lx, virt: %p.\n",
+			cv_mem.offset, size, align_size, virt);
 	}
 
 	return rval;
