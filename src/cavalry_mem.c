@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 
@@ -47,16 +48,22 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20190322,
+	.mod_time = 0x20190419,
 	.description = "Cavalry Memory Allocator Library",
 };
 
 static struct cavalry_mem_info G_mem_priv;
+static unsigned long G_page_size;
+
+#ifndef ROUND_UP
+#define ROUND_UP(size, align) (((size) + ((align) - 1)) & ~((align) - 1))
+#endif
 
 int cavalry_mem_init(int fd_cav, uint8_t verbose)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
 	struct cavalry_mem_version *pver = &G_version;
+	long size = 0;
 
 	if (fd_cav < 0) {
 		printf("Invalid fd_cavalry: %d param\n", fd_cav);
@@ -70,10 +77,20 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 		priv->fd_cav = fd_cav;
 		priv->verbose = !!verbose;
 	}
-
 	printf("%s: %u.%u.%u, mod-time: 0x%x, built-time: %s - %s\n",
 		pver->description, pver->major, pver->minor, pver->patch, pver->mod_time,
 		__DATE__, __TIME__);
+
+	size = sysconf(_SC_PAGESIZE);
+	if (size < 0) {
+		perror("sysconf _SC_PAGESIZE");
+		return -1;
+	}
+	G_page_size = size;
+	if (priv->verbose) {
+		printf("cavalry_mem page size: 0x%lx\n", G_page_size);
+	}
+
 	priv->init_done = 1;
 
 	return 0;
@@ -138,7 +155,8 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		}
 		*pvirt = virt;
 		*pphys = cv_mem.offset;
-		*psize = cv_mem.length;
+		/* Do not return actual size */
+		//*psize = cv_mem.length;
 
 		if (priv->verbose) {
 			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, virt: %p.\n",
@@ -153,6 +171,7 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
 	struct cavalry_mem cv_mem;
+	unsigned long align_size = 0;
 	int rval = 0;
 
 	if (!priv->init_done) {
@@ -164,7 +183,8 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 		return -1;
 	}
 
-	if (munmap(virt, size) < 0) {
+	align_size = ROUND_UP(size, G_page_size);
+	if (munmap(virt, align_size) < 0) {
 		perror("munmap cavalry mem err");
 		rval = -1;
 	}
