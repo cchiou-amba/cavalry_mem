@@ -48,7 +48,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20190419,
+	.mod_time = 0x20190725,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -77,9 +77,11 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 		priv->fd_cav = fd_cav;
 		priv->verbose = !!verbose;
 	}
-	printf("%s: %u.%u.%u, mod-time: 0x%x, built-time: %s - %s\n",
-		pver->description, pver->major, pver->minor, pver->patch, pver->mod_time,
-		__DATE__, __TIME__);
+	if (verbose) {
+		printf("%s: %u.%u.%u, mod-time: 0x%x, built-time: %s - %s\n",
+			pver->description, pver->major, pver->minor, pver->patch, pver->mod_time,
+			__DATE__, __TIME__);
+	}
 
 	size = sysconf(_SC_PAGESIZE);
 	if (size < 0) {
@@ -113,7 +115,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 	void **pvirt, uint8_t cache_en)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
-	struct cavalry_mem cv_mem;
+	struct cavalry_mem cv_mem = {0};
 	uint8_t *virt = NULL;
 	int rval = 0;
 
@@ -130,7 +132,6 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 		return -1;
 	}
 
-	memset(&cv_mem, 0, sizeof(cv_mem));
 	cv_mem.length = *psize;
 	cv_mem.cache_en = !!cache_en;
 
@@ -170,7 +171,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
-	struct cavalry_mem cv_mem;
+	struct cavalry_mem cv_mem = {0};
 	unsigned long align_size = 0;
 	int rval = 0;
 
@@ -188,7 +189,7 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 		perror("munmap cavalry mem err");
 		rval = -1;
 	}
-	memset(&cv_mem, 0, sizeof(cv_mem));
+
 	cv_mem.offset = phys;
 	if (ioctl(priv->fd_cav, CAVALRY_FREE_MEM, &cv_mem) < 0) {
 		perror("CAVALRY_FREE_MEM");
@@ -207,7 +208,7 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	uint8_t clean, uint8_t invalid)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
-	struct cavalry_cache_mem cache;
+	struct cavalry_cache_mem cache = {0};
 	int rval = 0;
 
 	if (!priv->init_done) {
@@ -219,7 +220,6 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 		return -1;
 	}
 
-	memset(&cache, 0, sizeof(cache));
 	cache.offset = phys;
 	cache.length = size;
 	cache.clean = !!clean;
