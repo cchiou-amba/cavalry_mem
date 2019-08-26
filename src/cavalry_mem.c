@@ -48,7 +48,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20190725,
+	.mod_time = 0x20190826,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -235,4 +235,12 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	}
 
 	return rval;
+}
+
+void cavalry_mem_exit(void)
+{
+	struct cavalry_mem_info *priv = &G_mem_priv;
+
+	priv->fd_cav = -1;
+	priv->init_done = 0;
 }

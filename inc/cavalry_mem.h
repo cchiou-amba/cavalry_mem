@@ -67,6 +67,7 @@ struct cavalry_mem_version {
 /* Library API */
 AMBA_API int cavalry_mem_init(IN int fd_cav, IN uint8_t verbose);
 AMBA_API int cavalry_mem_get_version(struct cavalry_mem_version *ver);
+AMBA_API void cavalry_mem_exit(void);
 
 
 /* Memory API */
