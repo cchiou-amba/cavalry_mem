@@ -3,7 +3,7 @@
  * @brief This file defines cavalry_mem API specification
  *
  * History:
- *    2018/09/18  - [Tao Wu] created for CV22
+ *    2018/09/18  - [Tao Wu] created
  *
  * Copyright (c) 2018 Ambarella, Inc.
  *
@@ -53,7 +53,7 @@ extern "C" {
 #endif
 
 /*! @addtogroup cavalry_mem-helper
- *  @{
+ * @{
  */
 
 /*!
@@ -64,11 +64,11 @@ struct cavalry_mem_version {
 	uint32_t minor;  /*!< Version minor number */
 	uint32_t patch;  /*!< Version patch number */
 	unsigned int mod_time;  /*!< Version modification time */
-	char description[64];  /*!< Version change description */
+	char description[64];  /*!< Version description */
 };
 
 /*! @macros AMBA_API
- *  @brief API function attribute */
+ * @brief API function attribute */
 #ifndef AMBA_API
 #define AMBA_API __attribute__((visibility("default")))
 #endif
