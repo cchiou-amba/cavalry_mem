@@ -91,7 +91,7 @@ struct cavalry_mem_version {
 AMBA_API int cavalry_mem_init(IN int fd_cav, IN uint8_t verbose);
 
 /*!
- * This API get the version of library.
+ * This API gets the version of library.
  *
  * @param ver the pointer to version
  * @return 0 = success, -1 = error.
@@ -99,7 +99,7 @@ AMBA_API int cavalry_mem_init(IN int fd_cav, IN uint8_t verbose);
 AMBA_API int cavalry_mem_get_version(struct cavalry_mem_version *ver);
 
 /*!
- * This API exit the library.
+ * This API exits the library.
  * It must be called after all other functions
  */
 AMBA_API void cavalry_mem_exit(void);
@@ -115,7 +115,7 @@ AMBA_API void cavalry_mem_exit(void);
  * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
  * @return 0 = success, -1 = error.
  */
-AMBA_API int cavalry_mem_alloc(INOUT unsigned long *psize,
+AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
 
 /*!
