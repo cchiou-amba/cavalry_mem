@@ -48,7 +48,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20190826,
+	.mod_time = 0x20200417,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -111,8 +111,8 @@ int cavalry_mem_get_version(struct cavalry_mem_version *ver)
 	return 0;
 }
 
-int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
-	void **pvirt, uint8_t cache_en)
+static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
+	void **pvirt, uint8_t cache_en, uint8_t auto_recycle)
 {
 	struct cavalry_mem_info *priv = &G_mem_priv;
 	struct cavalry_mem cv_mem = {0};
@@ -134,6 +134,7 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 
 	cv_mem.length = *psize;
 	cv_mem.cache_en = !!cache_en;
+	cv_mem.auto_recycle = !!auto_recycle;
 
 	do {
 		if (ioctl(priv->fd_cav, CAVALRY_ALLOC_MEM, &cv_mem) < 0) {
@@ -166,6 +167,18 @@ int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
 	}while (0);
 
 	return rval;
+}
+
+int cavalry_mem_alloc(unsigned long *psize, unsigned long *pphys,
+	void **pvirt, uint8_t cache_en)
+{
+	return alloc_cache_recycle(psize, pphys, pvirt, cache_en, 1);
+}
+
+int cavalry_mem_alloc_persist(unsigned long *psize, unsigned long *pphys,
+	void **pvirt, uint8_t cache_en)
+{
+	return alloc_cache_recycle(psize, pphys, pvirt, cache_en, 0);
 }
 
 int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)

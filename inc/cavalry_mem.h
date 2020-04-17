@@ -106,6 +106,7 @@ AMBA_API void cavalry_mem_exit(void);
 
 /*!
  * This API allocates the memory from the CV user memory.
+ * If process have not free memory before exit, driver will auto recycle these leaked memory.
  * Cache memory exist between ARM and DRAM.
  * Turn on @param cache_en can boost ARM process speed.
  *
@@ -117,6 +118,26 @@ AMBA_API void cavalry_mem_exit(void);
  */
 AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
+
+
+/*!
+ * This API allocates the memory from the CV user memory.
+ * If process have not free memory before exit, driver DO NOT auto recycle these leaked memory.
+ * Cache memory exist between ARM and DRAM.
+ * The differece between cavalry_mem_alloc() is this API can support memory auto recovery.
+ * If APP crash without call cavalry_mem_free, then it cause memory leakage issue.
+ * Driver will auto free this memory by call this API.
+ * Turn on @param cache_en can boost ARM process speed.
+ *
+ * @param psize the pointer to total size want allocate
+ * @param pphys the pointer to physical address that return
+ * @param pvirt the pointer to virtual address that return
+ * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
+ * @return 0 = success, -1 = error.
+ */
+AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
+	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
+
 
 /*!
  * This API frees the memory from the CV user memory.
