@@ -123,10 +123,8 @@ AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
 /*!
  * This API allocates the memory from the CV user memory.
  * If process have not free memory before exit, driver DO NOT auto recycle these leaked memory.
+ * Then it cause memory leakage issue. To avoid this issue, please use API cavalry_mem_alloc().
  * Cache memory exist between ARM and DRAM.
- * The differece between cavalry_mem_alloc() is this API can support memory auto recovery.
- * If APP crash without call cavalry_mem_free, then it cause memory leakage issue.
- * Driver will auto free this memory by call this API.
  * Turn on @param cache_en can boost ARM process speed.
  *
  * @param psize the pointer to total size want allocate
