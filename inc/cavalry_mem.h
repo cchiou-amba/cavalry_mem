@@ -129,6 +129,21 @@ AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
 
 
 /*!
+ * This API allocates the memory from the CV user memory by supply file description.
+ * This API always auto recycle leaked memory.
+ * Cache memory exist between ARM and DRAM.
+ * Turn on @param cache_en can boost ARM process speed.
+ *
+ * @param psize the pointer to total size want allocate
+ * @param fd the pointer of memory file description that return
+ * @param pvirt the pointer to virtual address that return
+ * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
+ * @return 0 = success, -1 = error.
+ */
+AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long size,
+	OUT int *fd, OUT void **pvirt, IN uint8_t cache_en);
+
+/*!
  * This API frees the memory from the CV user memory.
  *
  * @param size total size
@@ -138,6 +153,17 @@ AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
  */
 AMBA_API int cavalry_mem_free(IN unsigned long size,
 	IN unsigned long phys, IN void *virt);
+
+/*!
+ * This API frees the memory from the CV user memory by file description.
+ *
+ * @param size total size
+ * @param fd the file description of memory
+ * @param virt virtual address
+ * @return 0 = success, -1 = error.
+ */
+AMBA_API int cavalry_mem_free_mfd(IN unsigned long size,
+	IN int fd, IN void *virt);
 
 /*!
 * This API syncs the cached memory when cache_en is set in @ref cavalry_mem_alloc.
@@ -156,6 +182,26 @@ AMBA_API int cavalry_mem_free(IN unsigned long size,
 */
 AMBA_API int cavalry_mem_sync_cache(
 	IN unsigned long size, IN unsigned long phys,
+	IN uint8_t clean, IN uint8_t invalid);
+
+/*!
+* This API syncs the cached memory when cache_en is set in @ref cavalry_mem_alloc.
+* It will return an error if it is used with non-cached memory.
+* Can sync one slice of total memory. At the begin need sync network's dvi memory after nnctrl_load_net,
+* then most of time sync Network's Input/Ouput memory.
+*
+* @param size size of memory
+* @param offset the offset base on file description of memory
+* @param fd the file description of memory
+* @param virt virtual address
+* @param clean the flag to clean cache.  0: turn off; 1: turn on.
+*                        Program Flow: 1.ARM write -> 2.clean cache -> 3.VP read
+* @param invalid the flag to invalid cache.  0: turn off; 1: turn on.
+*                        Program Flow: 1.VP write -> 2.invalid cache -> 3.ARM read
+* @return 0 = success, -1 = error.
+*/
+AMBA_API int cavalry_mem_sync_cache_mfd(
+	IN unsigned long size, IN unsigned long offset, IN int fd,
 	IN uint8_t clean, IN uint8_t invalid);
 
 /*! @} */ /* End of cavalry_mem-api-details */

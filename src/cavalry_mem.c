@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20200417,
+	.mod_time = 0x20200428,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -134,8 +134,8 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 			break;
 		}
 
-		virt = mmap(NULL, cv_mem.length, PROT_WRITE, MAP_SHARED, priv->fd_cav,
-			cv_mem.offset);
+		virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_SHARED,
+			priv->fd_cav, cv_mem.offset);
 		if (virt == MAP_FAILED) {
 			perror("mmap cavalry mem err");
 			printf("mem free since mmap err: phys: 0x%08lx, size: 0x%08lx\n",
@@ -170,6 +170,51 @@ int cavalry_mem_alloc_persist(unsigned long *psize, unsigned long *pphys,
 	void **pvirt, uint8_t cache_en)
 {
 	return alloc_cache_recycle(psize, pphys, pvirt, cache_en, 0);
+}
+
+int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
+	void **pvirt, uint8_t cache_en)
+{
+	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mfd_alloc cv_mem = {0};
+	uint8_t *virt = NULL;
+	int rval = 0;
+
+	if (!priv->init_done) {
+		printf("Library is not inited for alloc\n");
+		return -1;
+	}
+
+	cv_mem.length = size;
+	cv_mem.cache_en = !!cache_en;
+
+	do {
+		if (ioctl(priv->fd_cav, CAVALRY_ALLOC_MEMFD, &cv_mem) < 0) {
+			perror("CAVALRY_ALLOC_MEMFD");
+			rval = -1;
+			break;
+		}
+
+		virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_SHARED,
+			cv_mem.fd, 0);
+		if (virt == MAP_FAILED) {
+			perror("mmap cavalry memfd err");
+			printf("mem free since mmapfd err: fd: %u, size: 0x%08lx\n",
+				cv_mem.fd, cv_mem.length);
+			close(cv_mem.fd);
+			rval = -1;
+			break;
+		}
+		*pvirt = virt;
+		*fd = cv_mem.fd;
+
+		if (priv->verbose) {
+			printf("mem alloc: fd: %u, size: 0x%08lx, virt: %p.\n",
+				cv_mem.fd, cv_mem.length, virt);
+		}
+	} while (0);
+
+	return rval;
 }
 
 int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
@@ -208,6 +253,33 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 	return rval;
 }
 
+int cavalry_mem_free_mfd(unsigned long size, int fd, void *virt)
+{
+	struct cavalry_mem_info *priv = &G_mem_priv;
+	int rval = 0;
+
+	if (!priv->init_done) {
+		printf("Library is not inited for alloc\n");
+		return -1;
+	}
+	if ((size == 0) || (fd < 0) || (virt == NULL)) {
+		printf("Invalid mem free size, fd, virt param\n");
+		return -1;
+	}
+
+	if (munmap(virt, size) < 0) {
+		perror("munmap cavalry mem err");
+		rval = -1;
+	}
+	close(fd);
+
+	if (priv->verbose) {
+		printf("mem free: fd: %u, size: 0x%08lx, virt: %p.\n", fd, size, virt);
+	}
+
+	return rval;
+}
+
 int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	uint8_t clean, uint8_t invalid)
 {
@@ -236,6 +308,40 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	if (priv->verbose) {
 		printf("mem sync (%u, %u): phys: 0x%08lx, size: 0x%08lx\n",
 			cache.clean, cache.invalid, cache.offset, cache.length);
+	}
+
+	return rval;
+}
+
+int cavalry_mem_sync_cache_mfd(unsigned long size, unsigned long offset, int fd,
+	uint8_t clean, uint8_t invalid)
+{
+	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mfd_cache cache = {0};
+	int rval = 0;
+
+	if (!priv->init_done) {
+		printf("Library is not inited for alloc\n");
+		return -1;
+	}
+	if ((size == 0) || (fd < 0)) {
+		printf("Invalid sync cache size and fd param\n");
+		return -1;
+	}
+
+	cache.fd = fd;
+	cache.offset = offset;
+	cache.length = size;
+	cache.clean = !!clean;
+	cache.invalid = !!invalid;
+	if (ioctl(priv->fd_cav, CAVALRY_SYNC_CACHE_MEMFD, &cache) < 0) {
+		perror("CAVALRY_SYNC_CACHE_MEMFD");
+		rval = -1;
+	}
+
+	if (priv->verbose) {
+		printf("mem sync (%u, %u): fd: %u, offset: 0x%08lx, size: 0x%08lx\n",
+			cache.clean, cache.invalid, cache.fd, cache.offset, cache.length);
 	}
 
 	return rval;
