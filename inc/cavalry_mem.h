@@ -80,6 +80,13 @@ struct cavalry_mem_version {
 AMBA_API int cavalry_mem_init(IN int fd_cav, IN uint8_t verbose);
 
 /*!
+ * This API return the initialized cavalry driver fd when call @ref cavalry_mem_init().
+ *
+ * @return -1 = error, otherwise success.
+ */
+AMBA_API int cavalry_mem_get_fd(void);
+
+/*!
  * This API gets the version of library.
  *
  * @param ver the pointer to version

@@ -37,11 +37,15 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20200527,
+	.mod_time = 0x20200727,
 	.description = "Cavalry Memory Allocator Library",
 };
 
-static struct cavalry_mem_info G_mem_priv;
+static struct cavalry_mem_info G_mem_priv = {
+	.fd_cav = -1,
+	.verbose = 0,
+	.init_done = 0,
+};
 static unsigned long G_page_size;
 
 #ifndef ROUND_UP
@@ -85,6 +89,17 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 	priv->init_done = 1;
 
 	return 0;
+}
+
+int cavalry_mem_get_fd(void)
+{
+	struct cavalry_mem_info *priv = &G_mem_priv;
+
+	if (priv->init_done) {
+		return priv->fd_cav;
+	} else {
+		return -1;
+	}
 }
 
 int cavalry_mem_get_version(struct cavalry_mem_version *ver)
