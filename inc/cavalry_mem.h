@@ -110,7 +110,7 @@ AMBA_API void cavalry_mem_exit(void);
  * @param pphys the pointer to physical address that return
  * @param pvirt the pointer to virtual address that return
  * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
- * @return 0 = success, -1 = error.
+ * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
 AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
@@ -127,7 +127,7 @@ AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
  * @param pphys the pointer to physical address that return
  * @param pvirt the pointer to virtual address that return
  * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
- * @return 0 = success, -1 = error.
+ * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
 AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
@@ -143,7 +143,7 @@ AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
  * @param fd the pointer of memory file description that return
  * @param pvirt the pointer to virtual address that return
  * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
- * @return 0 = success, -1 = error.
+ * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
 AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long size,
 	OUT int *fd, OUT void **pvirt, IN uint8_t cache_en);

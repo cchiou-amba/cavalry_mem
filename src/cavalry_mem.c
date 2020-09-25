@@ -141,9 +141,9 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 	cv_mem.auto_recycle = !!auto_recycle;
 
 	do {
-		if (ioctl(priv->fd_cav, CAVALRY_ALLOC_MEM, &cv_mem) < 0) {
+		rval = ioctl(priv->fd_cav, CAVALRY_ALLOC_MEM, &cv_mem);
+		if (rval < 0) {
 			perror("CAVALRY_ALLOC_MEM");
-			rval = -1;
 			break;
 		}
 
@@ -202,9 +202,9 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 	cv_mem.cache_en = !!cache_en;
 
 	do {
-		if (ioctl(priv->fd_cav, CAVALRY_ALLOC_MEMFD, &cv_mem) < 0) {
+		rval = ioctl(priv->fd_cav, CAVALRY_ALLOC_MEMFD, &cv_mem);
+		if (rval < 0) {
 			perror("CAVALRY_ALLOC_MEMFD");
-			rval = -1;
 			break;
 		}
 
