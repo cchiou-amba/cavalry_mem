@@ -22,12 +22,49 @@
 #ifndef _MEM_PRIV_H_
 #define _MEM_PRIV_H_
 
-struct cavalry_mem_info {
+#include "list.h"
+
+struct cavalry_mem_node {
+	struct list_head list;
+
+	uint32_t is_mem_fd : 1;
+	uint32_t reservied_0 : 31;
+
+	/* mem fd */
+	uint32_t mem_fd;
+	unsigned long offset;
+
+	/* absoluate physical */
+	unsigned long base_phys;
+
+	/* common */
+	void *base_virt;
+	unsigned long size;
+};
+
+static inline void LIST_LOCK(pthread_mutex_t *lock)
+{
+	if (pthread_mutex_lock(lock) < 0) {
+		perror("mutex_lock");
+	}
+}
+
+static inline void LIST_UNLOCK(pthread_mutex_t *lock)
+{
+	if (pthread_mutex_unlock(lock) < 0) {
+		perror("mutex_unlock");
+	}
+}
+
+struct cavalry_mem_ctx {
 	int fd_cav;
 
 	uint32_t verbose : 1;
 	uint32_t init_done : 1;
 	uint32_t reserved_0 : 30;
+
+	pthread_mutex_t list_lock; /* lock for mem_list */
+	struct list_head head;
 };
 
 #endif

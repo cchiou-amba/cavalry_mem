@@ -209,6 +209,22 @@ AMBA_API int cavalry_mem_sync_cache_mfd(
 	IN unsigned long size, IN unsigned long offset, IN int fd,
 	IN uint8_t clean, IN uint8_t invalid);
 
+/*!
+ * This API convert user space virt address to physical address.
+ *
+ * @param virt virtual address in user space
+ * @return 0 = error, non-zero = success.
+ */
+AMBA_API unsigned long cavalry_mem_virt_to_phys(IN void *virt);
+
+/*!
+ * This API convert physical address to user space virt address.
+ *
+ * @param phys physical address
+ * @return NULL = error, valid pointer = success.
+ */
+AMBA_API void *cavalry_mem_phys_to_virt(IN unsigned long phys);
+
 /*! @} */ /* End of cavalry_mem-api-details */
 
 #ifdef __cplusplus

@@ -32,7 +32,7 @@ LOCAL_CFLAGS    := -fvisibility=hidden \
 	-I$(LOCAL_PATH)/src \
 	-I$(AMB_TOPDIR)/include/cavalry
 
-LOCAL_LDFLAGS   :=
+LOCAL_LDFLAGS   := -lpthread
 
 CAVALRY_MEM_MODULE = libcavalry_mem.so
 CAVALRY_MEM_VER_PREFIX = MEM

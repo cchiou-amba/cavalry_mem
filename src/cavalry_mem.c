@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include <cavalry_ioctl.h>
 #include <cavalry_mem.h>
@@ -37,11 +38,11 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20200727,
+	.mod_time = 0x20201202,
 	.description = "Cavalry Memory Allocator Library",
 };
 
-static struct cavalry_mem_info G_mem_priv = {
+static struct cavalry_mem_ctx G_mem_priv = {
 	.fd_cav = -1,
 	.verbose = 0,
 	.init_done = 0,
@@ -54,7 +55,7 @@ static unsigned long G_page_size;
 
 int cavalry_mem_init(int fd_cav, uint8_t verbose)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mem_version *pver = &G_version;
 	long size = 0;
 
@@ -86,6 +87,13 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 		printf("cavalry_mem page size: 0x%lx\n", G_page_size);
 	}
 
+	if (pthread_mutex_init(&priv->list_lock, NULL) < 0) {
+		perror("cavalry mem list lock init");
+		return -1;
+	} else {
+		INIT_LIST_HEAD(&priv->head);
+	}
+
 	priv->init_done = 1;
 
 	return 0;
@@ -93,7 +101,7 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 
 int cavalry_mem_get_fd(void)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 
 	if (priv->init_done) {
 		return priv->fd_cav;
@@ -118,8 +126,9 @@ int cavalry_mem_get_version(struct cavalry_mem_version *ver)
 static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 	void **pvirt, uint8_t cache_en, uint8_t auto_recycle)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mem cv_mem = {0};
+	struct cavalry_mem_node *mem_node = NULL;
 	uint8_t *virt = NULL;
 	int rval = 0;
 
@@ -159,10 +168,32 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 			rval = -1;
 			break;
 		}
+
+		mem_node = malloc(sizeof(struct cavalry_mem_node));
+		if (!mem_node) {
+			perror("malloc cavalry_mem_node");
+			printf("malloc cavalry_mem_node error");
+			rval = -1;
+			break;
+		}
+
 		*pvirt = virt;
 		*pphys = cv_mem.offset;
 		/* Do not return actual size */
 		//*psize = cv_mem.length;
+
+		/* save into list */
+		mem_node->is_mem_fd = 0;
+		mem_node->mem_fd = 0;
+		mem_node->offset = 0;
+		mem_node->base_phys = cv_mem.offset;
+		mem_node->base_virt = virt;
+		mem_node->size = cv_mem.length;
+		INIT_LIST_HEAD(&mem_node->list);
+
+		LIST_LOCK(&priv->list_lock);
+		list_add_tail(&mem_node->list, &priv->head);
+		LIST_UNLOCK(&priv->list_lock);
 
 		if (priv->verbose) {
 			printf("mem alloc: phys: 0x%08lx, size: 0x%08lx, align_size: 0x%08lx, virt: %p.\n",
@@ -188,7 +219,7 @@ int cavalry_mem_alloc_persist(unsigned long *psize, unsigned long *pphys,
 int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 	void **pvirt, uint8_t cache_en)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mfd_alloc cv_mem = {0};
 	uint8_t *virt = NULL;
 	int rval = 0;
@@ -218,6 +249,7 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 			rval = -1;
 			break;
 		}
+
 		*pvirt = virt;
 		*fd = cv_mem.fd;
 
@@ -232,8 +264,9 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 
 int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mem cv_mem = {0};
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
 	unsigned long align_size = 0;
 	int rval = 0;
 
@@ -245,6 +278,20 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 		printf("Invalid mem free size, phys, virt param\n");
 		return -1;
 	}
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if (mem_node->base_phys == phys) {
+				if (mem_node) {
+					list_del(&mem_node->list);
+					free(mem_node);
+				}
+				break;
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
 
 	align_size = ROUND_UP(size, G_page_size);
 	if (munmap(virt, align_size) < 0) {
@@ -268,7 +315,7 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 
 int cavalry_mem_free_mfd(unsigned long size, int fd, void *virt)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	int rval = 0;
 
 	if (!priv->init_done) {
@@ -296,7 +343,7 @@ int cavalry_mem_free_mfd(unsigned long size, int fd, void *virt)
 int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	uint8_t clean, uint8_t invalid)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_cache_mem cache = {0};
 	int rval = 0;
 
@@ -329,7 +376,7 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 int cavalry_mem_sync_cache_mfd(unsigned long size, unsigned long offset, int fd,
 	uint8_t clean, uint8_t invalid)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mfd_sync cache = {0};
 	int rval = 0;
 
@@ -360,10 +407,73 @@ int cavalry_mem_sync_cache_mfd(unsigned long size, unsigned long offset, int fd,
 	return rval;
 }
 
+unsigned long cavalry_mem_virt_to_phys(IN void *virt)
+{
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
+	unsigned long phys = 0, offset = 0;
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if ((virt >= mem_node->base_virt) && (virt < mem_node->base_virt + mem_node->size)) {
+				offset = virt - mem_node->base_virt;
+				phys = mem_node->base_phys + offset;
+				break;
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
+
+	if (!phys) {
+		printf("Not found the corresponding phys of virt: %p\n", virt);
+	}
+
+	return phys;
+}
+
+void *cavalry_mem_phys_to_virt(IN unsigned long phys)
+{
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
+	unsigned long offset = 0;
+	void *virt = NULL;
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if ((phys >= mem_node->base_phys) && (phys < mem_node->base_phys + mem_node->size)) {
+				offset = phys - mem_node->base_phys;
+				virt = mem_node->base_virt + offset;
+				break;
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
+
+	if (!virt) {
+		printf("Not found the corresponding virt of phys: 0x%lx\n", phys);
+	}
+
+	return virt;
+}
+
 void cavalry_mem_exit(void)
 {
-	struct cavalry_mem_info *priv = &G_mem_priv;
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
 
 	priv->fd_cav = -1;
 	priv->init_done = 0;
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if (mem_node) {
+				list_del(&mem_node->list);
+				free(mem_node);
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
 }
