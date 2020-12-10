@@ -27,6 +27,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <errno.h>
 
 #include <cavalry_ioctl.h>
 #include <cavalry_mem.h>
@@ -38,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20201202,
+	.mod_time = 0x20201210,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -152,6 +153,9 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 	do {
 		rval = ioctl(priv->fd_cav, CAVALRY_ALLOC_MEM, &cv_mem);
 		if (rval < 0) {
+			if (errno == EBUSY) { /* If device busy, app can retry call this API */
+				rval = -EBUSY;
+			}
 			perror("CAVALRY_ALLOC_MEM");
 			break;
 		}
@@ -235,6 +239,9 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 	do {
 		rval = ioctl(priv->fd_cav, CAVALRY_ALLOC_MEMFD, &cv_mem);
 		if (rval < 0) {
+			if (errno == EBUSY) { /* If device busy, app can retry call this API */
+				rval = -EBUSY;
+			}
 			perror("CAVALRY_ALLOC_MEMFD");
 			break;
 		}
