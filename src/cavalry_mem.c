@@ -465,6 +465,30 @@ void *cavalry_mem_phys_to_virt(IN unsigned long phys)
 	return virt;
 }
 
+unsigned long cavalry_mem_get_size_by_virt(IN void *virt)
+{
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
+	unsigned long size = 0;
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if ((virt >= mem_node->base_virt) && (virt < mem_node->base_virt + mem_node->size)) {
+				size = mem_node->size; /* Found */
+				break;
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
+
+	if (!size) {
+		printf("Not found the corresponding size of virt: %p\n", virt);
+	}
+
+	return size;
+}
+
 void cavalry_mem_exit(void)
 {
 	struct cavalry_mem_ctx *priv = &G_mem_priv;

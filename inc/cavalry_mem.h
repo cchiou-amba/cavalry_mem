@@ -225,6 +225,14 @@ AMBA_API unsigned long cavalry_mem_virt_to_phys(IN void *virt);
  */
 AMBA_API void *cavalry_mem_phys_to_virt(IN unsigned long phys);
 
+/*!
+ * This API get memory size by virt.
+ *
+ * @param virt virtual address in user space
+ * @return 0 = error, non-zero = success.
+ */
+AMBA_API unsigned long cavalry_mem_get_size_by_virt(IN void *virt);
+
 /*! @} */ /* End of cavalry_mem-api-details */
 
 #ifdef __cplusplus
