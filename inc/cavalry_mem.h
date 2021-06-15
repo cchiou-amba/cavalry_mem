@@ -56,6 +56,21 @@ struct cavalry_mem_version {
 	char description[64];  /*!< Version description */
 };
 
+/*!
+ * @brief The attribute of cavalry_mem
+ */
+struct cavalry_mem_attr {
+	uint32_t cache_en : 1;  /*!< enables or disables cache. 0: non-cached;  1: cached */
+	uint32_t no_recycle : 1;  /*!< enables or disables the auto recycle memory.
+				* 0: memory is persist (leakage) if have not free it before process exit;
+				* 1: auto recycle memory if no user access it after process abnormal exit */
+	uint32_t share_to_dsp : 1;  /*!< if physical memory can be access by DSP,
+				* select this on CV5 platform */
+	uint32_t reserved1 : 29;
+
+	uint32_t reserved2[15];
+};
+
 /*! @macros AMBA_API
  * @brief API function attribute */
 #ifndef AMBA_API
@@ -132,6 +147,18 @@ AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
 AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN uint8_t cache_en);
 
+/*!
+ * This API allocates the memory with attribute from the CV memory.
+ *
+ *
+ * @param psize the pointer to total size want allocate
+ * @param pphys the pointer to physical address that return
+ * @param pvirt the pointer to virtual address that return
+ * @param attr the attribute of memory, like cache, recycle, share to dsp.
+ * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
+ */
+AMBA_API int cavalry_mem_alloc_with_attr(IN unsigned long size,
+	OUT unsigned long *pphys, OUT void **pvirt, IN struct cavalry_mem_attr *attr);
 
 /*!
  * This API allocates the memory from the CV user memory by supply file description.

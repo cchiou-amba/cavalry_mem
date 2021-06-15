@@ -24,7 +24,7 @@
 
 #define MEM_LIB_MAJOR 0
 #define MEM_LIB_MINOR 0
-#define MEM_LIB_PATCH 8
+#define MEM_LIB_PATCH 9
 #define MEM_LIB_VERSION ((MEM_LIB_MAJOR << 16) | \
 			(MEM_LIB_MINOR << 8)  | \
 			MEM_LIB_PATCH)
