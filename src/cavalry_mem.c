@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20210615,
+	.mod_time = 0x20210908,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -66,8 +66,8 @@ int cavalry_mem_init(int fd_cav, uint8_t verbose)
 	}
 
 	if (priv->init_done) {
-		printf("Library is inited already, do not do it again\n");
-		return -1;
+		printf("Library is initialized already\n");
+		return 0;
 	} else {
 		priv->fd_cav = fd_cav;
 		priv->verbose = !!verbose;
