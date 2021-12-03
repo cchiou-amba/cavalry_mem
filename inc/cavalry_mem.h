@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <cavalry_ioctl.h>
 
 #ifndef IN
 #define IN
@@ -54,21 +55,6 @@ struct cavalry_mem_version {
 	uint32_t patch;  /*!< Version patch number */
 	unsigned int mod_time;  /*!< Version modification time */
 	char description[64];  /*!< Version description */
-};
-
-/*!
- * @brief The attribute of cavalry_mem
- */
-struct cavalry_mem_attr {
-	uint32_t cache_en : 1;  /*!< enables or disables cache. 0: non-cached;  1: cached */
-	uint32_t no_recycle : 1;  /*!< enables or disables the auto recycle memory.
-				* 0: memory is persist (leakage) if have not free it before process exit;
-				* 1: auto recycle memory if no user access it after process abnormal exit */
-	uint32_t share_to_dsp : 1;  /*!< if physical memory can be access by DSP,
-				* select this on CV5 platform */
-	uint32_t reserved1 : 29;
-
-	uint32_t reserved2[15];
 };
 
 /*! @macros AMBA_API
