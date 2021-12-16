@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20210908,
+	.mod_time = 0x20211216,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -194,6 +194,10 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 		mem_node->base_phys = cv_mem.offset;
 		mem_node->base_virt = virt;
 		mem_node->size = cv_mem.length;
+		/* attr */
+		mem_node->attr.cache_en = cv_mem.cache_en;
+		mem_node->attr.no_recycle = !cv_mem.auto_recycle;
+		mem_node->attr.share_to_dsp = cv_mem.share_to_dsp;
 		INIT_LIST_HEAD(&mem_node->list);
 
 		LIST_LOCK(&priv->list_lock);
@@ -437,7 +441,8 @@ unsigned long cavalry_mem_virt_to_phys(IN void *virt)
 	LIST_LOCK(&priv->list_lock);
 	if (!list_empty(&priv->head)) {
 		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
-			if ((virt >= mem_node->base_virt) && (virt < mem_node->base_virt + mem_node->size)) {
+			if ((virt >= mem_node->base_virt) &&
+				(virt < mem_node->base_virt + mem_node->size)) {
 				offset = virt - mem_node->base_virt;
 				phys = mem_node->base_phys + offset;
 				break;
@@ -463,7 +468,8 @@ void *cavalry_mem_phys_to_virt(IN unsigned long phys)
 	LIST_LOCK(&priv->list_lock);
 	if (!list_empty(&priv->head)) {
 		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
-			if ((phys >= mem_node->base_phys) && (phys < mem_node->base_phys + mem_node->size)) {
+			if ((phys >= mem_node->base_phys) &&
+				(phys < mem_node->base_phys + mem_node->size)) {
 				offset = phys - mem_node->base_phys;
 				virt = mem_node->base_virt + offset;
 				break;
@@ -488,7 +494,8 @@ unsigned long cavalry_mem_get_size_by_virt(IN void *virt)
 	LIST_LOCK(&priv->list_lock);
 	if (!list_empty(&priv->head)) {
 		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
-			if ((virt >= mem_node->base_virt) && (virt < mem_node->base_virt + mem_node->size)) {
+			if ((virt >= mem_node->base_virt) &&
+				(virt < mem_node->base_virt + mem_node->size)) {
 				size = mem_node->size; /* Found */
 				break;
 			}
@@ -501,6 +508,34 @@ unsigned long cavalry_mem_get_size_by_virt(IN void *virt)
 	}
 
 	return size;
+}
+
+int cavalry_mem_get_attr_by_phys(IN unsigned long phys,
+	OUT struct cavalry_mem_attr *attr)
+{
+	struct cavalry_mem_ctx *priv = &G_mem_priv;
+	struct cavalry_mem_node *mem_node = NULL, *_mem_node = NULL;
+	int rval = -1;
+
+	if (!attr) {
+		printf("Invalid attr pointer: %p\n", attr);
+		return -1;
+	}
+
+	LIST_LOCK(&priv->list_lock);
+	if (!list_empty(&priv->head)) {
+		list_for_each_entry_safe(mem_node, _mem_node, &priv->head, list) {
+			if ((phys >= mem_node->base_phys) &&
+				(phys < mem_node->base_phys + mem_node->size)) {
+				memcpy(attr, &mem_node->attr, sizeof(struct cavalry_mem_attr));
+				rval = 0;
+				break;
+			}
+		}
+	}
+	LIST_UNLOCK(&priv->list_lock);
+
+	return rval;
 }
 
 void cavalry_mem_exit(void)

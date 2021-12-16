@@ -246,6 +246,16 @@ AMBA_API void *cavalry_mem_phys_to_virt(IN unsigned long phys);
  */
 AMBA_API unsigned long cavalry_mem_get_size_by_virt(IN void *virt);
 
+/*!
+ * This API get memory attribution by phys.
+ *
+ * @param phys physical address
+ * @param attr the pointer of attribution struct
+ * @return 0 = error, non-zero = success.
+ */
+AMBA_API int cavalry_mem_get_attr_by_phys(IN unsigned long phys,
+	OUT struct cavalry_mem_attr *attr);
+
 /*! @} */ /* End of cavalry_mem-api-details */
 
 #ifdef __cplusplus

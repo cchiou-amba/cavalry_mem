@@ -40,6 +40,9 @@ struct cavalry_mem_node {
 	/* common */
 	void *base_virt;
 	unsigned long size;
+
+	/* attr */
+	struct cavalry_mem_attr attr;
 };
 
 static inline void LIST_LOCK(pthread_mutex_t *lock)
