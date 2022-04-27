@@ -252,7 +252,7 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 	int rval = 0;
 
 	if (!priv->init_done) {
-		printf("Library is not inited for alloc\n");
+		printf("Library is not inited for alloc mfd\n");
 		return -1;
 	}
 
@@ -301,7 +301,7 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 	int rval = 0;
 
 	if (!priv->init_done) {
-		printf("Library is not inited for alloc\n");
+		printf("Library is not inited for free\n");
 		return -1;
 	}
 	if ((size == 0) || (phys == 0)) {
@@ -350,7 +350,7 @@ int cavalry_mem_free_mfd(unsigned long size, int fd, void *virt)
 	int rval = 0;
 
 	if (!priv->init_done) {
-		printf("Library is not inited for alloc\n");
+		printf("Library is not inited for free mfd\n");
 		return -1;
 	}
 	if ((size == 0) || (fd < 0) || (virt == NULL)) {
@@ -379,7 +379,7 @@ int cavalry_mem_sync_cache(unsigned long size, unsigned long phys,
 	int rval = 0;
 
 	if (!priv->init_done) {
-		printf("Library is not inited for alloc\n");
+		printf("Library is not inited for sync cache\n");
 		return -1;
 	}
 	if ((size == 0) || (phys == 0)) {
@@ -412,7 +412,7 @@ int cavalry_mem_sync_cache_mfd(unsigned long size, unsigned long offset, int fd,
 	int rval = 0;
 
 	if (!priv->init_done) {
-		printf("Library is not inited for alloc\n");
+		printf("Library is not inited for sync cached mfd\n");
 		return -1;
 	}
 	if ((size == 0) || (fd < 0)) {
