@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20211216,
+	.mod_time = 0x20220427,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -160,6 +160,11 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 			perror("CAVALRY_ALLOC_MEM");
 			break;
 		}
+		if (!cv_mem.offset) {
+			printf("CAVALRY_ALLOC_MEM return invalid phys: 0x%lx\n", cv_mem.offset);
+			rval = -1;
+			break;
+		}
 
 		virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_SHARED,
 			priv->fd_cav, cv_mem.offset);
@@ -168,7 +173,7 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 			printf("mem free since mmap err: phys: 0x%08lx, size: 0x%08lx\n",
 				cv_mem.offset, cv_mem.length);
 			if (ioctl(priv->fd_cav, CAVALRY_FREE_MEM, &cv_mem) < 0) {
-				perror("CAVALRY_ALLOC_MEM");
+				perror("CAVALRY_FREE_MEM");
 			}
 			rval = -1;
 			break;
@@ -299,8 +304,8 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 		printf("Library is not inited for alloc\n");
 		return -1;
 	}
-	if ((size == 0) || (phys == 0) || (virt == NULL)) {
-		printf("Invalid mem free size, phys, virt param\n");
+	if ((size == 0) || (phys == 0)) {
+		printf("Invalid mem free size: %lu, phys: %lu param\n", size, phys);
 		return -1;
 	}
 
@@ -319,9 +324,10 @@ int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
 	LIST_UNLOCK(&priv->list_lock);
 
 	align_size = ROUND_UP(size, G_page_size);
-	if (munmap(virt, align_size) < 0) {
-		perror("munmap cavalry mem err");
-		rval = -1;
+	if (virt) {
+		if (munmap(virt, align_size) < 0) {
+			perror("munmap cavalry mem");
+		}
 	}
 
 	cv_mem.offset = phys;
