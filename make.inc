@@ -30,7 +30,7 @@ LOCAL_SRCS      := $(wildcard $(LOCAL_PATH)/src/*.c)
 LOCAL_CFLAGS    := -fvisibility=hidden \
 	-I$(LOCAL_PATH)/inc \
 	-I$(LOCAL_PATH)/src \
-	-I$(AMB_TOPDIR)/include/cavalry/cavalry_v$(CONFIG_CAVALRY_VERSION)
+	-I$(AMB_TOPDIR)/include/cavalry/$(AMBA_CAVALRY_ARCH)
 
 LOCAL_LDFLAGS   := -lpthread
 
