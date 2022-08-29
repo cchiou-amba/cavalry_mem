@@ -48,7 +48,7 @@ SRCS           ?= $(shell find $(SRC_PATH) $(patsubst %,-path '*/%' -prune -o,$(
 OBJS            = $(call extract_obj,$(SRCS))
 DEPS            = $(patsubst %.o,%.d,$(OBJS))
 
-CFLAGS         += -DENV_BUILD_MODE_AMYOCTO
+CFLAGS         += -DAMBA_AMYOC_BUILD
 CFLAGS         += $(shell echo -DCONFIG_ARCH_$(AMBA_CHIP_ARCH) | tr [:lower:] [:upper:])
 CFLAGS         += -Iinc
 
