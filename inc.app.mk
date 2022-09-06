@@ -1,6 +1,7 @@
 ###########################################################
 ## History:
-##    2022/08/25 - [Yan Shi] Create
+##    2022/07/07 - [Jing Leng] Create
+##    2022/08/08 - [Jing Leng] Update to v1.0.0
 ##
 ## Copyright (c) 2022 Ambarella International LP
 ##
@@ -28,7 +29,7 @@
 ###########################################################
 
 ifeq ($(ENV_BUILD_MODE), external)
-OUT_PATH       ?= $(shell pwd | sed "s:$(ENV_TOP_DIR):$(ENV_OUT_ROOT):")
+OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(ENV_OUT_ROOT)/%,$(shell pwd))
 else
 OUT_PATH       ?= .
 endif
@@ -37,20 +38,26 @@ define extract_obj
 $(patsubst %,$(OUT_PATH)/%.o,$(basename $(1)))
 endef
 
-SRC_PATH       ?= src
+SRC_PATH       ?= .
 IGNORE_PATH    ?= .git scripts output
 REG_SUFFIX     ?= c cpp S
 CPP_SUFFIX     ?= cc cp cxx cpp CPP c++ C
 ASM_SUFFIX     ?= S s asm
 
 SRCS           ?= $(shell find $(SRC_PATH) $(patsubst %,-path '*/%' -prune -o,$(IGNORE_PATH)) \
-                       $(shell echo '$(patsubst %,-o -name "*.%" -print,$(REG_SUFFIX))' | sed 's/^...//') | xargs)
+                      $(shell echo '$(patsubst %,-o -name "*.%" -print,$(REG_SUFFIX))' | sed 's/^...//') \
+                  | sed "s/\(\.\/\)\(.*\)/\2/g" | xargs)
 OBJS            = $(call extract_obj,$(SRCS))
 DEPS            = $(patsubst %.o,%.d,$(OBJS))
 
+CFLAGS         += $(strip $(shell echo \
+                      -DAMBA_CHIP_ARCH_$(AMBA_CHIP_ARCH) \
+                      -DAMBA_DSP_ARCH_$(AMBA_DSP_ARCH) \
+                      -DAMBA_CAVALRY_ARCH_$(AMBA_CAVALRY_ARCH) \
+                      | tr [:lower:] [:upper:]))
 CFLAGS         += -DAMBA_AMYOC_BUILD
-CFLAGS         += $(shell echo -DCONFIG_ARCH_$(AMBA_CHIP_ARCH) | tr [:lower:] [:upper:])
-CFLAGS         += -Iinc
+
+CFLAGS         += -I./ -I./include/ $(patsubst %,-I%/,$(filter-out .,$(SRC_PATH))) $(patsubst %,-I%/include/,$(filter-out .,$(SRC_PATH))) -I$(OUT_PATH)/
 
 comma          :=,
 ifneq ($(PACKAGE_DEPS), )
@@ -95,6 +102,10 @@ define compile_tool
 $(if $(filter $(patsubst %,\%.%,$(CPP_SUFFIX)),$(1)),$(CXX),$(CC))
 endef
 
+define set_flags
+$(foreach v,$(2),$(eval $(1)_$(patsubst %,%.o,$(basename $(v))) = $(3)))
+endef
+
 define compile_obj
 ifeq ($(filter $(1),$(REG_SUFFIX)),$(1))
 ifneq ($(filter %.$(1),$(SRCS)), )
@@ -122,61 +133,10 @@ $(eval $(call compile_obj,asm,$$(AS)))
 $(OBJS): $(MAKEFILE_LIST)
 -include $(DEPS)
 
-.PHONY: clean_objs install_liba install_libso install_bin
+.PHONY: clean_objs install_lib install_bin install_hdr install_data
 
 clean_objs:
 	@-rm -rf $(OBJS) $(DEPS)
-
-ifneq ($(LIBA_NAME), )
-LIB_TARGETS += $(OUT_PATH)/$(LIBA_NAME)
-$(OUT_PATH)/$(LIBA_NAME): $(OBJS)
-	@echo "\033[032mlib:\033[0m	\033[44m$@\033[0m"
-	@$(AR) r $@ $^ -c
-
-install_liba:
-	@install -d $(ENV_INS_ROOT)/usr/lib
-	@cp -rf $(OUT_PATH)/$(LIBA_NAME) $(ENV_INS_ROOT)/usr/lib
-endif
-
-ifneq ($(LIBSO_NAME), )
-LIBSO_NAMES := $(call all_ver_obj,$(LIBSO_NAME))
-LIB_TARGETS += $(patsubst %,$(OUT_PATH)/%,$(LIBSO_NAMES))
-
-$(OUT_PATH)/$(firstword $(LIBSO_NAMES)): $(OBJS)
-	@echo "\033[032mlib:\033[0m	\033[44m$@\033[0m"
-	@$(call compile_tool,$(SRCS)) -shared -fPIC -o $@ $^ $(LDFLAGS) \
-		$(if $(findstring -soname=,$(LDFLAGS)),,-Wl$(comma)-soname=$(if $(word 2,$(LIBSO_NAME)),$(firstword $(LIBSO_NAME)).$(word 2,$(LIBSO_NAME)),$(LIBSO_NAME)))
-
-ifneq ($(word 2,$(LIBSO_NAMES)), )
-$(OUT_PATH)/$(word 2,$(LIBSO_NAMES)): $(OUT_PATH)/$(word 1,$(LIBSO_NAMES))
-	@cd $(OUT_PATH) && ln -sf $(patsubst $(OUT_PATH)/%,%,$<) $(patsubst $(OUT_PATH)/%,%,$@)
-endif
-
-ifneq ($(word 3,$(LIBSO_NAMES)), )
-$(OUT_PATH)/$(word 3,$(LIBSO_NAMES)): $(OUT_PATH)/$(word 2,$(LIBSO_NAMES))
-	@cd $(OUT_PATH) && ln -sf $(patsubst $(OUT_PATH)/%,%,$<) $(patsubst $(OUT_PATH)/%,%,$@)
-endif
-
-ifneq ($(word 4,$(LIBSO_NAMES)), )
-$(OUT_PATH)/$(word 4,$(LIBSO_NAMES)): $(OUT_PATH)/$(word 3,$(LIBSO_NAMES))
-	@cd $(OUT_PATH) && ln -sf $(patsubst $(OUT_PATH)/%,%,$<) $(patsubst $(OUT_PATH)/%,%,$@)
-endif
-
-install_libso:
-	@install -d $(ENV_INS_ROOT)/usr/lib
-	@cp -rf $(patsubst %,$(OUT_PATH)/%,$(LIBSO_NAMES)) $(ENV_INS_ROOT)/usr/lib
-endif
-
-ifneq ($(BIN_NAME), )
-BIN_TARGETS += $(OUT_PATH)/$(BIN_NAME)
-$(OUT_PATH)/$(BIN_NAME): $(OBJS)
-	@echo "\033[032mbin:\033[0m	\033[44m$@\033[0m"
-	@$(call compile_tool,$(SRCS)) -o $@ $^ $(LDFLAGS)
-
-install_bin:
-	@install -d $(ENV_INS_ROOT)/usr/bin
-	@cp -rf $(OUT_PATH)/$(BIN_NAME) $(ENV_INS_ROOT)/usr/bin
-endif
 
 define add-liba-build
 LIB_TARGETS += $$(OUT_PATH)/$(1)
@@ -218,17 +178,35 @@ $$(OUT_PATH)/$(1): $$(call extract_obj,$(2))
 	@$$(call compile_tool,$(2)) -o $$@ $$^ $$(LDFLAGS) $(3)
 endef
 
-ifneq ($(INSTALL_HEADER), )
-install_hdr:
-	@install -d $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
-	@cp -rf $(INSTALL_HEADER)/* $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
+ifneq ($(LIBA_NAME), )
+$(eval $(call add-liba-build,$(LIBA_NAME),$(SRCS)))
 endif
 
-ifneq ($(INSTALL_DATA), )
+ifneq ($(LIBSO_NAME), )
+$(eval $(call add-libso-build,$(LIBSO_NAME),$(SRCS)))
+endif
+
+ifneq ($(BIN_NAME), )
+$(eval $(call add-bin-build,$(BIN_NAME),$(SRCS)))
+endif
+
+INSTALL_LIBRARY ?= $(LIB_TARGETS)
+install_lib:
+	@install -d $(ENV_INS_ROOT)/usr/lib
+	@cp -rf $(INSTALL_LIBRARY) $(ENV_INS_ROOT)/usr/lib
+
+INSTALL_BINARY ?= $(BIN_TARGETS)
+install_bin:
+	@install -d $(ENV_INS_ROOT)/usr/bin
+	@cp -rf $(INSTALL_BINARY) $(ENV_INS_ROOT)/usr/bin
+
+install_hdr:
+	@install -d $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
+	@cp -rfp $(INSTALL_HEADER) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
+
 install_data:
 	@install -d $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
 	@cp -rf $(INSTALL_DATA) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
-endif
 
 install_data_%:
 	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))),cp -rfp,cp -rf)"; \

@@ -40,7 +40,11 @@ CAVALRY_MEMSO_VER_PATCH  := $(shell awk '/define $(CAVALRY_MEMVER_PREFIX)_LIB_PA
 
 LIBA_NAME = libcavalry_mem.a
 LIBSO_NAME = libcavalry_mem.so $(CAVALRY_MEMSO_VER_MAJOR) $(CAVALRY_MEMSO_VER_MINOR) $(CAVALRY_MEMSO_VER_PATCH)
-INSTALL_HEADER = inc
+INSTALL_HEADER = inc/*
+
+SRC_PATH = src
+CFLAGS += $(shell echo -DCONFIG_ARCH_$(AMBA_CHIP_ARCH) | tr [:lower:] [:upper:])
+CFLAGS += -Iinc
 
 .PHONY: all clean install
 
@@ -55,5 +59,5 @@ clean: clean_objs
 	@-rm -f $(LIB_TARGETS)
 	@echo "Clean $(PACKAGE_NAME) Done."
 
-install: install_liba install_libso install_hdr
+install: install_lib install_hdr
 
