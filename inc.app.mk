@@ -51,7 +51,7 @@ OBJS            = $(call extract_obj,$(SRCS))
 DEPS            = $(patsubst %.o,%.d,$(OBJS))
 
 CFLAGS         += $(strip $(shell echo \
-                      -DAMBA_CHIP_ARCH_$(AMBA_CHIP_ARCH) \
+                      -DAMBA_SOC_$(AMBA_SOC) \
                       -DAMBA_DSP_ARCH_$(AMBA_DSP_ARCH) \
                       -DAMBA_CAVALRY_ARCH_$(AMBA_CAVALRY_ARCH) \
                       | tr [:lower:] [:upper:]))

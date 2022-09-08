@@ -43,7 +43,7 @@ LIBSO_NAME = libcavalry_mem.so $(CAVALRY_MEMSO_VER_MAJOR) $(CAVALRY_MEMSO_VER_MI
 INSTALL_HEADER = inc/*
 
 SRC_PATH = src
-CFLAGS += $(shell echo -DCONFIG_ARCH_$(AMBA_CHIP_ARCH) | tr [:lower:] [:upper:])
+CFLAGS += $(shell echo -DCONFIG_ARCH_$(AMBA_SOC) | tr [:lower:] [:upper:])
 CFLAGS += -Iinc
 
 .PHONY: all clean install
