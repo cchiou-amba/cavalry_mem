@@ -2,6 +2,7 @@
 ## History:
 ##    2022/07/07 - [Jing Leng] Create
 ##    2022/08/08 - [Jing Leng] Update to v1.0.0
+##    2022/09/09 - [Jing Leng] Update to v1.1.0
 ##
 ## Copyright (c) 2022 Ambarella International LP
 ##
@@ -193,35 +194,45 @@ endif
 INSTALL_LIBRARY ?= $(LIB_TARGETS)
 install_lib:
 	@install -d $(ENV_INS_ROOT)/usr/lib
-	@cp -rf $(INSTALL_LIBRARY) $(ENV_INS_ROOT)/usr/lib
+	@cp -drf $(INSTALL_LIBRARY) $(ENV_INS_ROOT)/usr/lib
+
+INSTALL_BASE_LIBRARY ?= $(INSTALL_LIBRARY)
+install_base_lib:
+	@install -d $(ENV_INS_ROOT)/lib
+	@cp -drf $(INSTALL_BASE_LIBRARY) $(ENV_INS_ROOT)/lib
 
 INSTALL_BINARY ?= $(BIN_TARGETS)
 install_bin:
 	@install -d $(ENV_INS_ROOT)/usr/bin
-	@cp -rf $(INSTALL_BINARY) $(ENV_INS_ROOT)/usr/bin
+	@cp -drf $(INSTALL_BINARY) $(ENV_INS_ROOT)/usr/bin
+
+INSTALL_BASE_BINARY ?= $(INSTALL_BINARY)
+install_base_bin:
+	@install -d $(ENV_INS_ROOT)/bin
+	@cp -drf $(INSTALL_BASE_BINARY) $(ENV_INS_ROOT)/bin
 
 install_hdr:
 	@install -d $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
-	@cp -rfp $(INSTALL_HEADER) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
+	@cp -drfp $(INSTALL_HEADER) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
 
 install_data:
 	@install -d $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
-	@cp -rf $(INSTALL_DATA) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
+	@cp -drf $(INSTALL_DATA) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
 
 install_data_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))),cp -rfp,cp -rf)"; \
+	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))),cp -drfp,cp -drf)"; \
 		isrc="$(patsubst $(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@))),,$(INSTALL_DATA_$(patsubst install_data_%,%,$@)))"; \
 		idst="$(ENV_INS_ROOT)/usr/share$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))"; \
 		install -d $${idst} && $${icp} $${isrc} $${idst}
 
 install_todir_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))),cp -rfp,cp -rf)"; \
+	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))),cp -drfp,cp -drf)"; \
 		isrc="$(patsubst $(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@))),,$(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
 		idst="$(ENV_INS_ROOT)$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
 		install -d $${idst} && $${icp} $${isrc} $${idst}
 
 install_tofile_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))),cp -fp,cp -f)"; \
+	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))),cp -dfp,cp -df)"; \
 		isrc="$(word 1,$(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
 		idst="$(ENV_INS_ROOT)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
 		install -d $(dir $(ENV_INS_ROOT)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))) && $${icp} $${isrc} $${idst}
