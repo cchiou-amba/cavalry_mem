@@ -3,6 +3,7 @@
 ##    2022/07/07 - [Jing Leng] Create
 ##    2022/08/08 - [Jing Leng] Update to v1.0.0
 ##    2022/09/09 - [Jing Leng] Update to v1.1.0
+##    2022/10/26 - [Jing Leng] Update to v1.2.0
 ##
 ## Copyright (c) 2022 Ambarella International LP
 ##
@@ -29,10 +30,36 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ###########################################################
 
+ifeq ($(ENV_BUILD_MODE), yocto)
+# envs should be exported by yocto recipe.
+else
+
 ifeq ($(ENV_BUILD_MODE), external)
 OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(ENV_OUT_ROOT)/%,$(shell pwd))
 else
 OUT_PATH       ?= .
+endif
+
+ifneq ($(ENV_BUILD_ARCH), )
+ARCH           := $(ENV_BUILD_ARCH)
+export ARCH
+endif
+
+ifneq ($(ENV_BUILD_TOOL), )
+CROSS_COMPILE  := $(ENV_BUILD_TOOL)
+export CROSS_COMPILE
+endif
+
+CC             := $(CROSS_COMPILE)gcc
+CPP            := $(CROSS_COMPILE)gcc -E
+CXX            := $(CROSS_COMPILE)g++
+AS             := $(CROSS_COMPILE)as
+LD             := $(CROSS_COMPILE)ld
+AR             := $(CROSS_COMPILE)ar
+RANLIB         := $(CROSS_COMPILE)ranlib
+OBJCOPY        := $(CROSS_COMPILE)objcopy
+STRIP          := $(CROSS_COMPILE)strip
+export CC CXX CPP AS LD AR RANLIB OBJCOPY STRIP
 endif
 
 define extract_obj
@@ -42,12 +69,16 @@ endef
 SRC_PATH       ?= .
 IGNORE_PATH    ?= .git scripts output
 REG_SUFFIX     ?= c cpp S
+ifeq ($(USING_CXX_BUILD_C), y)
+CPP_SUFFIX     ?= c cc cp cxx cpp CPP c++ C
+else
 CPP_SUFFIX     ?= cc cp cxx cpp CPP c++ C
+endif
 ASM_SUFFIX     ?= S s asm
 
 SRCS           ?= $(shell find $(SRC_PATH) $(patsubst %,-path '*/%' -prune -o,$(IGNORE_PATH)) \
                       $(shell echo '$(patsubst %,-o -name "*.%" -print,$(REG_SUFFIX))' | sed 's/^...//') \
-                  | sed "s/\(\.\/\)\(.*\)/\2/g" | xargs)
+                  | sed "s/^\(\.\/\)\(.*\)/\2/g" | xargs)
 OBJS            = $(call extract_obj,$(SRCS))
 DEPS            = $(patsubst %.o,%.d,$(OBJS))
 
@@ -85,6 +116,8 @@ LDFLAGS        += -Wl,--gc-sections
 endif
 #LDFLAGS       += -static
 
+COLORECHO       = $(if $(findstring dash,$(shell readlink /bin/sh)),echo,echo -e)
+
 define all_ver_obj
 $(strip \
 	$(if $(word 4,$(1)), \
@@ -113,13 +146,17 @@ ifneq ($(filter %.$(1),$(SRCS)), )
 $$(patsubst %.$(1),$$(OUT_PATH)/%.o,$$(filter %.$(1),$$(SRCS))): $$(OUT_PATH)/%.o: %.$(1)
 	@mkdir -p $$(dir $$@)
 	@$$(if $$(filter-out $$(patsubst %,\%.%,$$(ASM_SUFFIX)),$$<),$(2) -c $$(CFLAGS) $$(CFLAGS_$$(patsubst %.$(1),%.o,$$<)) -MM -MT $$@ -MF $$(patsubst %.o,%.d,$$@) $$<)
-	@#echo "\033[032m$(2)\033[0m	$$<"
+	@#$(COLORECHO) "\033[032m$(2)\033[0m	$$<"
 	@$$(if $$(filter-out $$(AS),$(2)),$(2) -c $$(CFLAGS) $$(CFLAGS_$$(patsubst %.$(1),%.o,$$<)) -fPIC -o $$@ $$<,$(AS) $$(AFLAGS) $$(AFLAGS_$$(patsubst %.$(1),%.o,$$<)) -o $$@ $$<)
 endif
 endif
 endef
 
+ifeq ($(USING_CXX_BUILD_C), y)
+$(eval $(call compile_obj,c,$$(CXX)))
+else
 $(eval $(call compile_obj,c,$$(CC)))
+endif
 $(eval $(call compile_obj,cc,$$(CXX)))
 $(eval $(call compile_obj,cp,$$(CXX)))
 $(eval $(call compile_obj,cxx,$$(CXX)))
@@ -134,7 +171,7 @@ $(eval $(call compile_obj,asm,$$(AS)))
 $(OBJS): $(MAKEFILE_LIST)
 -include $(DEPS)
 
-.PHONY: clean_objs install_lib install_bin install_hdr install_data
+.PHONY: clean_objs
 
 clean_objs:
 	@-rm -rf $(OBJS) $(DEPS)
@@ -142,7 +179,7 @@ clean_objs:
 define add-liba-build
 LIB_TARGETS += $$(OUT_PATH)/$(1)
 $$(OUT_PATH)/$(1): $$(call extract_obj,$(2))
-	@echo "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
+	@$(COLORECHO) "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
 	@$$(AR) r $$@ $$^ -c
 endef
 
@@ -151,7 +188,7 @@ libso_names := $(call all_ver_obj,$(1))
 LIB_TARGETS += $(patsubst %,$(OUT_PATH)/%,$(call all_ver_obj,$(1)))
 
 $$(OUT_PATH)/$$(firstword $$(libso_names)): $$(call extract_obj,$(2))
-	@echo "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
+	@$(COLORECHO) "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
 	@$$(call compile_tool,$(2)) -shared -fPIC -o $$@ $$^ $$(LDFLAGS) $(3) \
 		$$(if $$(findstring -soname=,$(3)),,-Wl$$(comma)-soname=$$(if $$(word 2,$(1)),$$(firstword $(1)).$$(word 2,$(1)),$(1)))
 
@@ -175,7 +212,7 @@ endef
 define add-bin-build
 BIN_TARGETS += $$(OUT_PATH)/$(1)
 $$(OUT_PATH)/$(1): $$(call extract_obj,$(2))
-	@echo "\033[032mbin:\033[0m	\033[44m$$@\033[0m"
+	@$(COLORECHO) "\033[032mbin:\033[0m	\033[44m$$@\033[0m"
 	@$$(call compile_tool,$(2)) -o $$@ $$^ $$(LDFLAGS) $(3)
 endef
 
@@ -191,38 +228,41 @@ ifneq ($(BIN_NAME), )
 $(eval $(call add-bin-build,$(BIN_NAME),$(SRCS)))
 endif
 
-INSTALL_LIBRARY ?= $(LIB_TARGETS)
-install_lib:
+INSTALL_LIBRARIES ?= $(LIB_TARGETS)
+INSTALL_BINARIES ?= $(BIN_TARGETS)
+
+.PHONY: install_libs install_base_libs install_bins install_base_bins install_hdrs install_datas
+
+install_libs:
 	@install -d $(ENV_INS_ROOT)/usr/lib
-	@cp -drf $(INSTALL_LIBRARY) $(ENV_INS_ROOT)/usr/lib
+	@cp -drf $(INSTALL_LIBRARIES) $(ENV_INS_ROOT)/usr/lib
 
-INSTALL_BASE_LIBRARY ?= $(INSTALL_LIBRARY)
-install_base_lib:
+INSTALL_BASE_LIBRARIES ?= $(INSTALL_LIBRARIES)
+install_base_libs:
 	@install -d $(ENV_INS_ROOT)/lib
-	@cp -drf $(INSTALL_BASE_LIBRARY) $(ENV_INS_ROOT)/lib
+	@cp -drf $(INSTALL_BASE_LIBRARIES) $(ENV_INS_ROOT)/lib
 
-INSTALL_BINARY ?= $(BIN_TARGETS)
-install_bin:
+install_bins:
 	@install -d $(ENV_INS_ROOT)/usr/bin
-	@cp -drf $(INSTALL_BINARY) $(ENV_INS_ROOT)/usr/bin
+	@cp -drf $(INSTALL_BINARIES) $(ENV_INS_ROOT)/usr/bin
 
-INSTALL_BASE_BINARY ?= $(INSTALL_BINARY)
-install_base_bin:
+INSTALL_BASE_BINARIES ?= $(INSTALL_BINARIES)
+install_base_bins:
 	@install -d $(ENV_INS_ROOT)/bin
-	@cp -drf $(INSTALL_BASE_BINARY) $(ENV_INS_ROOT)/bin
+	@cp -drf $(INSTALL_BASE_BINARIES) $(ENV_INS_ROOT)/bin
 
-install_hdr:
+install_hdrs:
 	@install -d $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
-	@cp -drfp $(INSTALL_HEADER) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
+	@cp -drfp $(INSTALL_HEADERS) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
 
-install_data:
+install_datas:
 	@install -d $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
-	@cp -drf $(INSTALL_DATA) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
+	@cp -drf $(INSTALL_DATAS) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
 
-install_data_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))),cp -drfp,cp -drf)"; \
-		isrc="$(patsubst $(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@))),,$(INSTALL_DATA_$(patsubst install_data_%,%,$@)))"; \
-		idst="$(ENV_INS_ROOT)/usr/share$(lastword $(INSTALL_DATA_$(patsubst install_data_%,%,$@)))"; \
+install_datas_%:
+	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))),cp -drfp,cp -drf)"; \
+		isrc="$(patsubst $(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@))),,$(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
+		idst="$(ENV_INS_ROOT)/usr/share$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
 		install -d $${idst} && $${icp} $${isrc} $${idst}
 
 install_todir_%:
