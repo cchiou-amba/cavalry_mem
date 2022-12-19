@@ -5,6 +5,7 @@
 ##    2022/09/09 - [Jing Leng] Update to v1.1.0
 ##    2022/10/26 - [Jing Leng] Update to v1.2.0
 ##    2022/11/10 - [Jing Leng] Add safe copy
+##    2022/12/16 - [Jing Leng] Update to v2.0.0
 ##
 ## Copyright (c) 2022 Ambarella International LP
 ##
@@ -31,15 +32,57 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ###########################################################
 
+################### copy from in.env.mk ###################
+
+ifneq ($(BUILD_FOR_HOST), y)
+OUT_PREFIX     := $(ENV_OUT_ROOT)
+INS_PREFIX     := $(ENV_INS_ROOT)
+DEP_PREFIX     := $(ENV_DEP_ROOT)
+else
+OUT_PREFIX     := $(ENV_OUT_HOST)
+INS_PREFIX     := $(ENV_INS_HOST)
+DEP_PREFIX     := $(ENV_DEP_HOST)
+endif
+
+define link_hdrs
+$(addprefix  -I,$(wildcard \
+	$(addprefix $(DEP_PREFIX),/include /usr/include /usr/local/include) \
+	$(addprefix $(DEP_PREFIX)/include/,$(PACKAGE_DEPS)) \
+	$(addprefix $(DEP_PREFIX)/usr/include/,$(PACKAGE_DEPS)) \
+	$(addprefix $(DEP_PREFIX)/usr/local/include/,$(PACKAGE_DEPS)) \
+))
+endef
+
+ifeq ($(KERNELRELEASE), )
+
+comma          :=,
+define link_libs
+$(addprefix -L,$(wildcard $(addprefix $(DEP_PREFIX),/lib /usr/lib /usr/local/lib))) \
+$(addprefix -Wl$(comma)-rpath-link=,$(wildcard $(addprefix $(DEP_PREFIX),/lib /usr/lib /usr/local/lib)))
+endef
+
+define safe_copy
+$(if $(filter yocto,$(ENV_BUILD_MODE)),cp $1 $2,flock $(INS_PREFIX) -c "cp $1 $2")
+endef
+
+ifneq ($(filter y,$(EXPORT_HOST_ENV) $(BUILD_FOR_HOST)), )
+export PATH:=$(shell echo $(addprefix $(ENV_DEP_HOST),/bin /usr/bin /usr/local/bin)$(if $(PATH),:$(PATH)) | sed 's/ /:/g')
+export LD_LIBRARY_PATH:=$(shell echo $(addprefix $(ENV_DEP_HOST),/lib /usr/lib /usr/local/lib)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH)) | sed 's/ /:/g')
+endif
+
 ifeq ($(ENV_BUILD_MODE), yocto)
+
 # envs should be exported by yocto recipe.
+
 else
 
 ifeq ($(ENV_BUILD_MODE), external)
-OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(ENV_OUT_ROOT)/%,$(shell pwd))
+OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(OUT_PREFIX)/%,$(shell pwd))
 else
 OUT_PATH       ?= .
 endif
+
+ifneq ($(BUILD_FOR_HOST), y)
 
 ifneq ($(ENV_BUILD_ARCH), )
 ARCH           := $(ENV_BUILD_ARCH)
@@ -47,7 +90,13 @@ export ARCH
 endif
 
 ifneq ($(ENV_BUILD_TOOL), )
+ifneq ($(findstring /,$(ENV_BUILD_TOOL)), )
+CROSS_TOOLPATH := $(shell dirname $(ENV_BUILD_TOOL))
+CROSS_COMPILE  := $(shell basename $(ENV_BUILD_TOOL))
+export PATH:=$(PATH):$(CROSS_TOOLPATH)
+else
 CROSS_COMPILE  := $(ENV_BUILD_TOOL)
+endif
 export CROSS_COMPILE
 endif
 
@@ -61,11 +110,30 @@ RANLIB         := $(CROSS_COMPILE)ranlib
 OBJCOPY        := $(CROSS_COMPILE)objcopy
 STRIP          := $(CROSS_COMPILE)strip
 export CC CXX CPP AS LD AR RANLIB OBJCOPY STRIP
+
+else
+
+undefine ARCH CROSS_COMPILE
+unexport ARCH CROSS_COMPILE
+
+CC             := gcc
+CPP            := gcc -E
+CXX            := g++
+AS             := as
+LD             := ld
+AR             := ar
+RANLIB         := ranlib
+OBJCOPY        := objcopy
+STRIP          := strip
+export CC CXX CPP AS LD AR RANLIB OBJCOPY STRIP
+
+endif
+endif
 endif
 
-define extract_obj
-$(patsubst %,$(OUT_PATH)/%.o,$(basename $(1)))
-endef
+###########################################################
+
+ifeq ($(KERNELRELEASE), )
 
 SRC_PATH       ?= .
 IGNORE_PATH    ?= .git scripts output
@@ -80,24 +148,22 @@ ASM_SUFFIX     ?= S s asm
 SRCS           ?= $(shell find $(SRC_PATH) $(patsubst %,-path '*/%' -prune -o,$(IGNORE_PATH)) \
                       $(shell echo '$(patsubst %,-o -name "*.%" -print,$(REG_SUFFIX))' | sed 's/^...//') \
                   | sed "s/^\(\.\/\)\(.*\)/\2/g" | xargs)
-OBJS            = $(call extract_obj,$(SRCS))
-DEPS            = $(patsubst %.o,%.d,$(OBJS))
 
+#### flags related to board ####
 CFLAGS         += $(strip $(shell echo \
                       -DAMBA_SOC_$(AMBA_SOC) \
                       -DAMBA_DSP_ARCH_$(AMBA_DSP_ARCH) \
+                      -DAMBA_IMG_ARCH_$(AMBA_IMG_ARCH) \
                       -DAMBA_CAVALRY_ARCH_$(AMBA_CAVALRY_ARCH) \
                       | tr [:lower:] [:upper:]))
 CFLAGS         += -DAMBA_AMYOC_BUILD
+CFLAGS         += -I$(DEP_PREFIX)/usr/include/board
 
-CFLAGS         += -I./ -I./include/ $(patsubst %,-I%/,$(filter-out .,$(SRC_PATH))) $(patsubst %,-I%/include/,$(filter-out .,$(SRC_PATH))) -I$(OUT_PATH)/
+CFLAGS         += -I. -I./include $(patsubst %,-I%,$(filter-out .,$(SRC_PATH))) $(patsubst %,-I%/include,$(filter-out .,$(SRC_PATH))) -I$(OUT_PATH)
 
-comma          :=,
 ifneq ($(PACKAGE_DEPS), )
-CFLAGS         += $(patsubst %,-I$(ENV_DEP_ROOT)%,/usr/include/ /usr/local/include/)
-CFLAGS         += $(patsubst %,-I$(ENV_DEP_ROOT)/usr/include/%/,$(PACKAGE_DEPS) board)
-LDFLAGS        += $(patsubst %,-L$(ENV_DEP_ROOT)%,/lib/ /usr/lib/ /usr/local/lib/)
-LDFLAGS        += $(patsubst %,-Wl$(comma)-rpath-link=$(ENV_DEP_ROOT)%,/lib/ /usr/lib/ /usr/local/lib/)
+CFLAGS         += $(call link_hdrs)
+LDFLAGS        += $(call link_libs)
 endif
 
 ifeq ($(STRICT), y)
@@ -118,6 +184,14 @@ endif
 
 COLORECHO       = $(if $(findstring dash,$(shell readlink /bin/sh)),echo,echo -e)
 
+define extract_obj
+$(patsubst %,$(OUT_PATH)/%.o,$(basename $(1)))
+endef
+
+define set_flags
+$(foreach v,$(2),$(eval $(1)_$(patsubst %,%.o,$(basename $(v))) = $(3)))
+endef
+
 define all_ver_obj
 $(strip \
 	$(if $(word 4,$(1)), \
@@ -134,10 +208,6 @@ endef
 
 define compile_tool
 $(if $(filter $(patsubst %,\%.%,$(CPP_SUFFIX)),$(1)),$(CXX),$(CC))
-endef
-
-define set_flags
-$(foreach v,$(2),$(eval $(1)_$(patsubst %,%.o,$(basename $(v))) = $(3)))
 endef
 
 define compile_obj
@@ -168,6 +238,8 @@ $(eval $(call compile_obj,S,$$(CC)))
 $(eval $(call compile_obj,s,$$(AS)))
 $(eval $(call compile_obj,asm,$$(AS)))
 
+OBJS            = $(call extract_obj,$(SRCS))
+DEPS            = $(patsubst %.o,%.d,$(OBJS))
 $(OBJS): $(MAKEFILE_LIST)
 -include $(DEPS)
 
@@ -229,55 +301,60 @@ $(eval $(call add-bin-build,$(BIN_NAME),$(SRCS)))
 endif
 
 INSTALL_LIBRARIES ?= $(LIB_TARGETS)
-INSTALL_BINARIES ?= $(BIN_TARGETS)
+INSTALL_BINARIES  ?= $(BIN_TARGETS)
+
+endif
+
+################### copy from in.ins.mk ###################
+
+ifeq ($(KERNELRELEASE), )
 
 .PHONY: install_libs install_base_libs install_bins install_base_bins install_hdrs install_datas
 
-define safe_cp
-$(if $(filter yocto,$(ENV_BUILD_MODE)),cp $1 $2,flock $(ENV_INS_ROOT) -c "cp $1 $2")
-endef
-
 install_libs:
-	@install -d $(ENV_INS_ROOT)/usr/lib
-	@$(call safe_cp,-drf,$(INSTALL_LIBRARIES) $(ENV_INS_ROOT)/usr/lib)
+	@install -d $(INS_PREFIX)/usr/lib
+	@$(call safe_copy,-drf,$(INSTALL_LIBRARIES) $(INS_PREFIX)/usr/lib)
 
 INSTALL_BASE_LIBRARIES ?= $(INSTALL_LIBRARIES)
 install_base_libs:
-	@install -d $(ENV_INS_ROOT)/lib
-	@$(call safe_cp,-drf,$(INSTALL_BASE_LIBRARIES) $(ENV_INS_ROOT)/lib)
+	@install -d $(INS_PREFIX)/lib
+	@$(call safe_copy,-drf,$(INSTALL_BASE_LIBRARIES) $(INS_PREFIX)/lib)
 
 install_bins:
-	@install -d $(ENV_INS_ROOT)/usr/bin
-	@$(call safe_cp,-drf,$(INSTALL_BINARIES) $(ENV_INS_ROOT)/usr/bin)
+	@install -d $(INS_PREFIX)/usr/bin
+	@$(call safe_copy,-drf,$(INSTALL_BINARIES) $(INS_PREFIX)/usr/bin)
 
 INSTALL_BASE_BINARIES ?= $(INSTALL_BINARIES)
 install_base_bins:
-	@install -d $(ENV_INS_ROOT)/bin
-	@$(call safe_cp,-drf,$(INSTALL_BASE_BINARIES) $(ENV_INS_ROOT)/bin)
+	@install -d $(INS_PREFIX)/bin
+	@$(call safe_copy,-drf,$(INSTALL_BASE_BINARIES) $(INS_PREFIX)/bin)
 
 install_hdrs:
-	@install -d $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME)
-	@$(call safe_cp,-drfp,$(INSTALL_HEADERS) $(ENV_INS_ROOT)/usr/include/$(PACKAGE_NAME))
+	@install -d $(INS_PREFIX)/usr/include/$(PACKAGE_NAME)
+	@$(call safe_copy,-drfp,$(INSTALL_HEADERS) $(INS_PREFIX)/usr/include/$(PACKAGE_NAME))
 
 install_datas:
-	@install -d $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME)
-	@$(call safe_cp,-drf,$(INSTALL_DATAS) $(ENV_INS_ROOT)/usr/share/$(PACKAGE_NAME))
+	@install -d $(INS_PREFIX)/usr/share/$(PACKAGE_NAME)
+	@$(call safe_copy,-drf,$(INSTALL_DATAS) $(INS_PREFIX)/usr/share/$(PACKAGE_NAME))
 
 install_datas_%:
 	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))),-drfp,-drf)"; \
 		isrc="$(patsubst $(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@))),,$(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
-		idst="$(ENV_INS_ROOT)/usr/share$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
-		install -d $${idst} && $(call safe_cp,$${icp},$${isrc} $${idst})
+		idst="$(INS_PREFIX)/usr/share$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
+		install -d $${idst} && $(call safe_copy,$${icp},$${isrc} $${idst})
 
 install_todir_%:
 	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))),-drfp,-drf)"; \
 		isrc="$(patsubst $(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@))),,$(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
-		idst="$(ENV_INS_ROOT)$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
-		install -d $${idst} && $(call safe_cp,$${icp},$${isrc} $${idst})
+		idst="$(INS_PREFIX)$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
+		install -d $${idst} && $(call safe_copy,$${icp},$${isrc} $${idst})
 
 install_tofile_%:
 	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))),-dfp,-df)"; \
 		isrc="$(word 1,$(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
-		idst="$(ENV_INS_ROOT)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
-		install -d $(dir $(ENV_INS_ROOT)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))) && $(call safe_cp,$${icp},$${isrc} $${idst})
+		idst="$(INS_PREFIX)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
+		install -d $(dir $(INS_PREFIX)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))) && $(call safe_copy,$${icp},$${isrc} $${idst})
 
+endif
+
+###########################################################
