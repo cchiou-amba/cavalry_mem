@@ -1,0 +1,13 @@
+V= 0.0
+R= 0.0.0
+prefix=/usr
+exec_prefix=${prefix}
+libdir=/usr/lib/
+includedir=${prefix}/include/libcavalrymem/
+
+Name: Libcavalrymem
+Description: Ambarella Libcavalrymem
+Version: ${R}
+Requires:
+Libs: -L${libdir} -lcavalry_mem
+Cflags: -I${includedir}
