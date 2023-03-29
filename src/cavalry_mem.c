@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20220427,
+	.mod_time = 0x20230329,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -158,10 +158,12 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 				rval = -EBUSY;
 			}
 			perror("CAVALRY_ALLOC_MEM");
+			printf("CAVALRY_ALLOC_MEM allocate size: %lu error\n", cv_mem.length);
 			break;
 		}
 		if (!cv_mem.offset) {
-			printf("CAVALRY_ALLOC_MEM return invalid phys: 0x%lx\n", cv_mem.offset);
+			printf("CAVALRY_ALLOC_MEM return invalid phys: 0x%lx when allocate size: %lu\n",
+				cv_mem.offset, cv_mem.length);
 			rval = -1;
 			break;
 		}
