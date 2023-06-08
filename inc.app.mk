@@ -6,6 +6,8 @@
 ##    2022/10/26 - [Jing Leng] Update to v1.2.0
 ##    2022/11/10 - [Jing Leng] Add safe copy
 ##    2022/12/16 - [Jing Leng] Update to v2.0.0
+##    2023/01/11 - [Jing Leng] Update to v2.1.0
+##    2023/03/30 - [Jing Leng] Update to v2.2.0
 ##
 ## Copyright (c) 2022 Ambarella International LP
 ##
@@ -34,22 +36,52 @@
 
 ################### copy from in.env.mk ###################
 
+COLORECHO      ?= $(if $(findstring dash,$(shell readlink /bin/sh)),echo,echo -e)
+LOGOUTPUT      ?= 1>/dev/null
+
+INSTALL_HDR    ?= $(PACKAGE_NAME)
+SEARCH_HDRS    ?= $(PACKAGE_DEPS)
+
 ifneq ($(BUILD_FOR_HOST), y)
-OUT_PREFIX     := $(ENV_OUT_ROOT)
-INS_PREFIX     := $(ENV_INS_ROOT)
-DEP_PREFIX     := $(ENV_DEP_ROOT)
+PACKAGE_ID     := $(PACKAGE_NAME)
+OUT_PREFIX     ?= $(ENV_OUT_ROOT)
+INS_PREFIX     ?= $(ENV_INS_ROOT)
+ifneq ($(PREPARE_SYSROOT), y)
+DEP_PREFIX     ?= $(ENV_DEP_ROOT)
 else
-OUT_PREFIX     := $(ENV_OUT_HOST)
-INS_PREFIX     := $(ENV_INS_HOST)
-DEP_PREFIX     := $(ENV_DEP_HOST)
+DEP_PREFIX     ?= $(OUT_PATH)/sysroot
+endif
+
+else
+
+PACKAGE_ID     := $(PACKAGE_NAME)-native
+OUT_PREFIX     ?= $(ENV_OUT_HOST)
+INS_PREFIX     ?= $(ENV_INS_HOST)
+ifneq ($(PREPARE_SYSROOT), y)
+DEP_PREFIX     ?= $(ENV_DEP_HOST)
+else
+DEP_PREFIX     ?= $(OUT_PATH)/sysroot-native
+endif
+endif
+
+ifneq ($(PREPARE_SYSROOT), y)
+PATH_PREFIX    ?= $(ENV_DEP_HOST)
+else
+PATH_PREFIX    ?= $(OUT_PATH)/sysroot-native
+endif
+
+ifeq ($(ENV_BUILD_MODE), external)
+OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(OUT_PREFIX)/%,$(shell pwd))
+else
+OUT_PATH       ?= .
 endif
 
 define link_hdrs
 $(addprefix  -I,$(wildcard \
 	$(addprefix $(DEP_PREFIX),/include /usr/include /usr/local/include) \
-	$(addprefix $(DEP_PREFIX)/include/,$(PACKAGE_DEPS)) \
-	$(addprefix $(DEP_PREFIX)/usr/include/,$(PACKAGE_DEPS)) \
-	$(addprefix $(DEP_PREFIX)/usr/local/include/,$(PACKAGE_DEPS)) \
+	$(addprefix $(DEP_PREFIX)/include/,$(SEARCH_HDRS)) \
+	$(addprefix $(DEP_PREFIX)/usr/include/,$(SEARCH_HDRS)) \
+	$(addprefix $(DEP_PREFIX)/usr/local/include/,$(SEARCH_HDRS)) \
 ))
 endef
 
@@ -61,26 +93,28 @@ $(addprefix -L,$(wildcard $(addprefix $(DEP_PREFIX),/lib /usr/lib /usr/local/lib
 $(addprefix -Wl$(comma)-rpath-link=,$(wildcard $(addprefix $(DEP_PREFIX),/lib /usr/lib /usr/local/lib)))
 endef
 
+define prepare_sysroot
+	make ENV_INS_ROOT=$(OUT_PATH)/sysroot ENV_INS_HOST=$(OUT_PATH)/sysroot-native \
+		-C $(ENV_TOP_DIR) $(PACKAGE_ID)_install_depends
+endef
+
 define safe_copy
 $(if $(filter yocto,$(ENV_BUILD_MODE)),cp $1 $2,flock $(INS_PREFIX) -c "cp $1 $2")
 endef
 
 ifneq ($(filter y,$(EXPORT_HOST_ENV) $(BUILD_FOR_HOST)), )
-export PATH:=$(shell echo $(addprefix $(ENV_DEP_HOST),/bin /usr/bin /usr/local/bin)$(if $(PATH),:$(PATH)) | sed 's/ /:/g')
-export LD_LIBRARY_PATH:=$(shell echo $(addprefix $(ENV_DEP_HOST),/lib /usr/lib /usr/local/lib)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH)) | sed 's/ /:/g')
+export PATH:=$(shell echo $(addprefix $(PATH_PREFIX),/bin /usr/bin /usr/local/bin /sbin /usr/sbin /usr/local/sbin)$(if $(PATH),:$(PATH)) | sed 's/ /:/g')
+export LD_LIBRARY_PATH:=$(shell echo $(addprefix $(PATH_PREFIX),/lib /usr/lib /usr/local/lib)$(if $(LD_LIBRARY_PATH),:$(LD_LIBRARY_PATH)) | sed 's/ /:/g')
 endif
 
-ifeq ($(ENV_BUILD_MODE), yocto)
-
-# envs should be exported by yocto recipe.
-
-else
-
-ifeq ($(ENV_BUILD_MODE), external)
-OUT_PATH       ?= $(patsubst $(ENV_TOP_DIR)/%,$(OUT_PREFIX)/%,$(shell pwd))
-else
-OUT_PATH       ?= .
+ifeq ($(EXPORT_PC_ENV), y)
+export PKG_CONFIG_LIBDIR=$(DEP_PREFIX)/usr/lib/pkgconfig
+export PKG_CONFIG_PATH=$(shell echo $(wildcard $(addprefix $(DEP_PREFIX),$(addsuffix /pkgconfig,/lib /usr/lib /usr/local/lib))) | sed 's@ @:@g')
 endif
+
+# yocto envs should be exported by yocto recipe.
+
+ifneq ($(ENV_BUILD_MODE), yocto)
 
 ifneq ($(BUILD_FOR_HOST), y)
 
@@ -129,6 +163,35 @@ export CC CXX CPP AS LD AR RANLIB OBJCOPY STRIP
 
 endif
 endif
+
+# Defines the GNU standard installation directories
+# Note: base_*dir and hdrdir are not defined in the GNUInstallDirs
+# GNUInstallDirs/Autotools: https://www.gnu.org/prep/standards/html_node/Directory-Variables.html
+# CMake: https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
+# Meson: https://mesonbuild.com/Builtin-options.html#directories
+# Yocto: https://git.yoctoproject.org/poky/tree/meta/conf/bitbake.conf
+
+base_bindir     = /bin
+base_sbindir    = /sbin
+base_libdir     = /lib
+bindir          = /usr/bin
+sbindir         = /usr/sbin
+libdir          = /usr/lib
+libexecdir      = /usr/libexec
+hdrdir          = /usr/include/$(INSTALL_HDR)
+includedir      = /usr/include
+datarootdir     = /usr/share
+datadir         = $(datarootdir)
+infodir         = $(datadir)/info
+localedir       = $(datadir)/locale
+mandir          = $(datadir)/man
+docdir          = $(datadir)/doc
+sysconfdir      = /etc
+servicedir      = /srv
+sharedstatedir  = /com
+localstatedir   = /var
+runstatedir     = /run
+
 endif
 
 ###########################################################
@@ -136,7 +199,7 @@ endif
 ifeq ($(KERNELRELEASE), )
 
 SRC_PATH       ?= .
-IGNORE_PATH    ?= .git scripts output
+IGNORE_PATH    ?= .git .pc scripts output
 REG_SUFFIX     ?= c cpp S
 ifeq ($(USING_CXX_BUILD_C), y)
 CPP_SUFFIX     ?= c cc cp cxx cpp CPP c++ C
@@ -161,7 +224,7 @@ CFLAGS         += -I$(DEP_PREFIX)/usr/include/board
 
 CFLAGS         += -I. -I./include $(patsubst %,-I%,$(filter-out .,$(SRC_PATH))) $(patsubst %,-I%/include,$(filter-out .,$(SRC_PATH))) -I$(OUT_PATH)
 
-ifneq ($(PACKAGE_DEPS), )
+ifneq ($(SEARCH_HDRS), )
 CFLAGS         += $(call link_hdrs)
 LDFLAGS        += $(call link_libs)
 endif
@@ -182,7 +245,25 @@ LDFLAGS        += -Wl,--gc-sections
 endif
 #LDFLAGS       += -static
 
-COLORECHO       = $(if $(findstring dash,$(shell readlink /bin/sh)),echo,echo -e)
+# For more description, refer to https://gcc.gnu.org/onlinedocs/gcc-12.3.0/gcc/Instrumentation-Options.html
+ifeq ($(ENV_FSANITIZE_OPTION), 1)
+# Enable AddressSanitizer, a fast memory error detector to detect out-of-bounds and use-after-free bugs.
+FSANITIZE_FLAG ?= -fsanitize=address
+else ifeq ($(ENV_FSANITIZE_OPTION), 2)
+# Enable ThreadSanitizer, a fast data race detector.
+# Memory access instructions are instrumented to detect data race bugs.
+FSANITIZE_FLAG ?= -fsanitize=thread
+else ifeq ($(ENV_FSANITIZE_OPTION), 3)
+# Enable LeakSanitizer, a memory leak detector. This option only matters for linking of executables,
+# and the executable is linked against a library that overrides malloc and other allocator functions.
+FSANITIZE_FLAG ?= -fsanitize=leak
+else ifeq ($(ENV_FSANITIZE_OPTION), 4)
+# Enable UndefinedBehaviorSanitizer, a fast undefined behavior detector.
+# Various computations are instrumented to detect undefined behavior at runtime.
+FSANITIZE_FLAG ?= -fsanitize=undefined
+endif
+CFLAGS         += $(FSANITIZE_FLAG)
+LDFLAGS        += $(FSANITIZE_FLAG)
 
 define extract_obj
 $(patsubst %,$(OUT_PATH)/%.o,$(basename $(1)))
@@ -215,8 +296,12 @@ ifeq ($(filter $(1),$(REG_SUFFIX)),$(1))
 ifneq ($(filter %.$(1),$(SRCS)), )
 $$(patsubst %.$(1),$$(OUT_PATH)/%.o,$$(filter %.$(1),$$(SRCS))): $$(OUT_PATH)/%.o: %.$(1)
 	@mkdir -p $$(dir $$@)
-	@$$(if $$(filter-out $$(patsubst %,\%.%,$$(ASM_SUFFIX)),$$<),$(2) -c $$(CFLAGS) $$(CFLAGS_$$(patsubst %.$(1),%.o,$$<)) -MM -MT $$@ -MF $$(patsubst %.o,%.d,$$@) $$<)
-	@#$(COLORECHO) "\033[032m$(2)\033[0m	$$<"
+	@$$(if $$(filter-out $$(patsubst %,\%.%,$$(ASM_SUFFIX)),$$<), \
+		$(2) -c $$(CFLAGS) $$(CFLAGS_$$(patsubst %.$(1),%.o,$$<)) -MM -MT $$@ -MF $$(patsubst %.o,%.d,$$@) $$<; \
+		cat $$(patsubst %.o,%.d,$$@) \
+			| sed -e 's/#.*//' -e 's/^[^:]*:\s*//' -e 's/\s*\\$$$$//' -e 's/[ \t\v][ \t\v]*/\n/g' \
+			| sed -e '/^$$$$/ d' -e 's/$$$$/:/g' >> $$(patsubst %.o,%.d,$$@))
+	@$(COLORECHO) "\033[032m$(2)\033[0m	$$<" $(LOGOUTPUT)
 	@$$(if $$(filter-out $$(AS),$(2)),$(2) -c $$(CFLAGS) $$(CFLAGS_$$(patsubst %.$(1),%.o,$$<)) -fPIC -o $$@ $$<,$(AS) $$(AFLAGS) $$(AFLAGS_$$(patsubst %.$(1),%.o,$$<)) -o $$@ $$<)
 endif
 endif
@@ -252,7 +337,7 @@ define add-liba-build
 LIB_TARGETS += $$(OUT_PATH)/$(1)
 $$(OUT_PATH)/$(1): $$(call extract_obj,$(2))
 	@$(COLORECHO) "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
-	@$$(AR) r $$@ $$^ -c
+	@$$(AR) r $$@ $$(call extract_obj,$(2)) -c
 endef
 
 define add-libso-build
@@ -261,7 +346,7 @@ LIB_TARGETS += $(patsubst %,$(OUT_PATH)/%,$(call all_ver_obj,$(1)))
 
 $$(OUT_PATH)/$$(firstword $$(libso_names)): $$(call extract_obj,$(2))
 	@$(COLORECHO) "\033[032mlib:\033[0m	\033[44m$$@\033[0m"
-	@$$(call compile_tool,$(2)) -shared -fPIC -o $$@ $$^ $$(LDFLAGS) $(3) \
+	@$$(call compile_tool,$(2)) -shared -fPIC -o $$@ $$(call extract_obj,$(2)) $$(LDFLAGS) $(3) \
 		$$(if $$(findstring -soname=,$(3)),,-Wl$$(comma)-soname=$$(if $$(word 2,$(1)),$$(firstword $(1)).$$(word 2,$(1)),$(1)))
 
 ifneq ($$(word 2,$$(libso_names)), )
@@ -285,7 +370,7 @@ define add-bin-build
 BIN_TARGETS += $$(OUT_PATH)/$(1)
 $$(OUT_PATH)/$(1): $$(call extract_obj,$(2))
 	@$(COLORECHO) "\033[032mbin:\033[0m	\033[44m$$@\033[0m"
-	@$$(call compile_tool,$(2)) -o $$@ $$^ $$(LDFLAGS) $(3)
+	@$$(call compile_tool,$(2)) -o $$@ $$(call extract_obj,$(2)) $$(LDFLAGS) $(3)
 endef
 
 ifneq ($(LIBA_NAME), )
@@ -309,51 +394,76 @@ endif
 
 ifeq ($(KERNELRELEASE), )
 
-.PHONY: install_libs install_base_libs install_bins install_base_bins install_hdrs install_datas
+# Defines the compatible variables with previous inc.ins.mk
 
-install_libs:
-	@install -d $(INS_PREFIX)/usr/lib
-	@$(call safe_copy,-drf,$(INSTALL_LIBRARIES) $(INS_PREFIX)/usr/lib)
-
+INSTALL_BASE_BINARIES  ?= $(INSTALL_BINARIES)
+INSTALL_BASE_BINS      ?= $(INSTALL_BASE_BINARIES)
+INSTALL_BINS           ?= $(INSTALL_BINARIES)
 INSTALL_BASE_LIBRARIES ?= $(INSTALL_LIBRARIES)
-install_base_libs:
-	@install -d $(INS_PREFIX)/lib
-	@$(call safe_copy,-drf,$(INSTALL_BASE_LIBRARIES) $(INS_PREFIX)/lib)
+INSTALL_BASE_LIBS      ?= $(INSTALL_BASE_LIBRARIES)
+INSTALL_LIBS           ?= $(INSTALL_LIBRARIES)
+INSTALL_HDRS           ?= $(INSTALL_HEADERS)
 
-install_bins:
-	@install -d $(INS_PREFIX)/usr/bin
-	@$(call safe_copy,-drf,$(INSTALL_BINARIES) $(INS_PREFIX)/usr/bin)
+# Defines the installation functions and targets
 
-INSTALL_BASE_BINARIES ?= $(INSTALL_BINARIES)
-install_base_bins:
-	@install -d $(INS_PREFIX)/bin
-	@$(call safe_copy,-drf,$(INSTALL_BASE_BINARIES) $(INS_PREFIX)/bin)
+define install_obj
+.PHONY: install_$(1)s
+install_$(1)s:
+	@install -d $$(INS_PREFIX)$$($(1)dir)
+	@$$(call safe_copy,$(2),$$($(shell echo install_$(1)s | tr 'a-z' 'A-Z')) $$(INS_PREFIX)$$($(1)dir))
+endef
 
-install_hdrs:
-	@install -d $(INS_PREFIX)/usr/include/$(PACKAGE_NAME)
-	@$(call safe_copy,-drfp,$(INSTALL_HEADERS) $(INS_PREFIX)/usr/include/$(PACKAGE_NAME))
+define install_ext
+install_$(1)s_%:
+	@ivar="$$($(shell echo install_$(1)s | tr 'a-z' 'A-Z')$$(patsubst install_$(1)s%,%,$$@))"; \
+	isrc="$$$$(echo $$$${ivar} | sed -E 's/\s+[a-zA-Z0-9/@_\.\-]+$$$$//g')"; \
+	idst="$$(INS_PREFIX)$$($(1)dir)$$$$(echo $$$${ivar} | sed -E 's/.*\s+([a-zA-Z0-9/@_\.\-]+)$$$$/\1/g')"; \
+	install -d $$$${idst} && $$(call safe_copy,$(2),$$$${isrc} $$$${idst})
+endef
 
-install_datas:
-	@install -d $(INS_PREFIX)/usr/share/$(PACKAGE_NAME)
-	@$(call safe_copy,-drf,$(INSTALL_DATAS) $(INS_PREFIX)/usr/share/$(PACKAGE_NAME))
+$(eval $(call install_obj,base_bin,-drf))
+$(eval $(call install_obj,base_sbin,-drf))
+$(eval $(call install_obj,base_lib,-drf))
+$(eval $(call install_obj,bin,-drf))
+$(eval $(call install_obj,sbin,-drf))
+$(eval $(call install_obj,lib,-drf))
+$(eval $(call install_obj,libexec,-drf))
+$(eval $(call install_obj,hdr,-drfp))
+$(eval $(call install_obj,include,-drfp))
+$(eval $(call install_obj,data,-drf))
+$(eval $(call install_obj,info,-drf))
+$(eval $(call install_obj,locale,-drf))
+$(eval $(call install_obj,man,-drf))
+$(eval $(call install_obj,doc,-drf))
+$(eval $(call install_obj,sysconf,-drf))
+$(eval $(call install_obj,service,-drf))
+$(eval $(call install_obj,sharedstate,-drf))
+$(eval $(call install_obj,localstate,-drf))
+$(eval $(call install_obj,runstate,-drf))
 
-install_datas_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))),-drfp,-drf)"; \
-		isrc="$(patsubst $(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@))),,$(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
-		idst="$(INS_PREFIX)/usr/share$(lastword $(INSTALL_DATAS_$(patsubst install_datas_%,%,$@)))"; \
-		install -d $${idst} && $(call safe_copy,$${icp},$${isrc} $${idst})
+$(eval $(call install_ext,include,-drfp))
+$(eval $(call install_ext,data,-drf))
+$(eval $(call install_ext,sysconf,-drf))
 
 install_todir_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))),-drfp,-drf)"; \
-		isrc="$(patsubst $(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@))),,$(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
-		idst="$(INS_PREFIX)$(lastword $(INSTALL_TODIR_$(patsubst install_todir_%,%,$@)))"; \
-		install -d $${idst} && $(call safe_copy,$${icp},$${isrc} $${idst})
+	@ivar="$($(shell echo install_todir | tr 'a-z' 'A-Z')$(patsubst install_todir%,%,$@))"; \
+	isrc="$$(echo $${ivar} | sed -E 's/\s+[a-zA-Z0-9/@_\.\-]+$$//g')"; \
+	idst="$(INS_PREFIX)$$(echo $${ivar} | sed -E 's/.*\s+([a-zA-Z0-9/@_\.\-]+)$$/\1/g')"; \
+	iopt="-drf"; \
+	if [ $$(echo $${ivar} | sed -E 's/.*\s+([a-zA-Z0-9/@_\.\-]+)$$/\1/g' | grep -c '/include') -eq 1 ]; then \
+		iopt="-drfp"; \
+	fi; \
+	install -d $${idst} && $(call safe_copy,$${iopt},$${isrc} $${idst})
 
 install_tofile_%:
-	@icp="$(if $(findstring /include,$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))),-dfp,-df)"; \
-		isrc="$(word 1,$(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
-		idst="$(INS_PREFIX)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))"; \
-		install -d $(dir $(INS_PREFIX)$(lastword $(INSTALL_TOFILE_$(patsubst install_tofile_%,%,$@)))) && $(call safe_copy,$${icp},$${isrc} $${idst})
+	@ivar="$($(shell echo install_tofile | tr 'a-z' 'A-Z')$(patsubst install_tofile%,%,$@))"; \
+	isrc="$$(echo $${ivar} | sed -E 's/\s+[a-zA-Z0-9/@_\.\-]+$$//g')"; \
+	idst="$(INS_PREFIX)$$(echo $${ivar} | sed -E 's/.*\s+([a-zA-Z0-9/@_\.\-]+)$$/\1/g')"; \
+	iopt="-drf"; \
+	if [ $$(echo $${ivar} | sed -E 's/.*\s+([a-zA-Z0-9/@_\.\-]+)$$/\1/g' | grep -c '/include') -eq 1 ]; then \
+		iopt="-drfp"; \
+	fi; \
+	install -d $$(dirname $${idst}) && $(call safe_copy,$${iopt},$${isrc} $${idst})
 
 endif
 
