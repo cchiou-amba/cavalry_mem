@@ -52,7 +52,7 @@ CFLAGS += -Iinc
 all:
 	@echo "Build $(PACKAGE_NAME) Done."
 
-include inc.app.mk
+include $(ENV_MAKE_DIR)/inc.app.mk
 
 all: $(LIB_TARGETS)
 
