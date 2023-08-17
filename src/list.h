@@ -39,28 +39,28 @@ static void xlist_del(struct list_head *prev, struct list_head *next)
 	next->prev = prev;
 }
 
-static void inline INIT_LIST_HEAD(struct list_head *head)
+static inline void INIT_LIST_HEAD(struct list_head *head)
 {
 	head->prev = head;
 	head->next = head;
 }
 
-static void inline list_add_tail(struct list_head *new, struct list_head *head)
+static inline void list_add_tail(struct list_head *new, struct list_head *head)
 {
 	xlist_add(new, head->prev, head);
 }
 
-static void inline list_add(struct list_head *new, struct list_head *head)
+static inline void list_add(struct list_head *new, struct list_head *head)
 {
 	xlist_add(new, head, head->next);
 }
 
-static void inline list_del(struct list_head *entry)
+static inline void list_del(struct list_head *entry)
 {
 	xlist_del(entry->prev, entry->next);
 }
 
-static int inline list_empty(struct list_head *entry)
+static inline int list_empty(struct list_head *entry)
 {
 	return entry->prev == entry ? 1 : 0;
 }
@@ -83,7 +83,7 @@ static inline void list_move_tail(struct list_head *new,
 	list_add_tail(new, head);
 }
 
-static void inline xlist_splice(struct list_head *list,
+static inline void xlist_splice(struct list_head *list,
 	struct list_head *prev,
 	struct list_head *next)
 {
