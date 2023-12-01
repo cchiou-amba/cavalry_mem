@@ -27,7 +27,8 @@
 ## POSSIBILITY OF SUCH DAMAGE.
 ###########################################################
 
-#DEPS(amba.mk) libcavalrymem(jobserver): generic-header ambcavalry-header AMBA_SOC!=s6lm
+#DEPS(amba.mk) libcavalrymem(jobserver): AMBA_SOC!=s6lm &&??generic-header \
+	&&??ambcavalry-header
 
 PACKAGE_NAME = libcavalrymem
 PACKAGE_DEPS = generic-header ambcavalry-header
