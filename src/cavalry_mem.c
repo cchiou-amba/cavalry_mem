@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20230329,
+	.mod_time = 0x20231226,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -460,7 +460,9 @@ unsigned long cavalry_mem_virt_to_phys(IN void *virt)
 	LIST_UNLOCK(&priv->list_lock);
 
 	if (!phys) {
-		printf("Not found the corresponding phys of virt: %p\n", virt);
+		if (priv->verbose) {
+			printf("Not found the corresponding phys of virt: %p\n", virt);
+		}
 	}
 
 	return phys;
@@ -487,7 +489,9 @@ void *cavalry_mem_phys_to_virt(IN unsigned long phys)
 	LIST_UNLOCK(&priv->list_lock);
 
 	if (!virt) {
-		printf("Not found the corresponding virt of phys: 0x%lx\n", phys);
+		if (priv->verbose) {
+			printf("Not found the corresponding virt of phys: 0x%lx\n", phys);
+		}
 	}
 
 	return virt;
@@ -512,7 +516,9 @@ unsigned long cavalry_mem_get_size_by_virt(IN void *virt)
 	LIST_UNLOCK(&priv->list_lock);
 
 	if (!size) {
-		printf("Not found the corresponding size of virt: %p\n", virt);
+		if (priv->verbose) {
+			printf("Not found the corresponding size of virt: %p\n", virt);
+		}
 	}
 
 	return size;
