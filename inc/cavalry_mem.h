@@ -162,6 +162,18 @@ AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long size,
 	OUT int *fd, OUT void **pvirt, IN uint8_t cache_en);
 
 /*!
+ * This API allocates the memory with attribute from the CV memory by supply file description.
+ *
+ * @param psize the pointer to total size want allocate
+ * @param fd the pointer of memory file description that return
+ * @param pvirt the pointer to virtual address that return
+ * @param attr the attribute of memory, like cache, recycle, share to dsp.
+ * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
+ */
+AMBA_API int cavalry_mem_alloc_with_attr_mfd(IN unsigned long size,
+	OUT int *fd, OUT void **pvirt, IN struct cavalry_mem_attr *attr);
+
+/*!
  * This API frees the memory from the CV user memory.
  *
  * @param size total size

@@ -39,7 +39,7 @@ static struct cavalry_mem_version G_version = {
 	.major = MEM_LIB_MAJOR,
 	.minor = MEM_LIB_MINOR,
 	.patch = MEM_LIB_PATCH,
-	.mod_time = 0x20231226,
+	.mod_time = 0x20240418,
 	.description = "Cavalry Memory Allocator Library",
 };
 
@@ -245,8 +245,8 @@ int cavalry_mem_alloc_with_attr(unsigned long size, unsigned long *pphys,
 	}
 }
 
-int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
-	void **pvirt, uint8_t cache_en)
+static int alloc_cache_share_mfd(unsigned long size, int *fd,
+	void **pvirt, uint8_t cache_en, uint8_t share_to_dsp)
 {
 	struct cavalry_mem_ctx *priv = &G_mem_priv;
 	struct cavalry_mfd_alloc cv_mem = {0};
@@ -258,8 +258,14 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 		return -1;
 	}
 
+	if ((size == 0) || (fd == NULL) || (pvirt == NULL)) {
+		printf("Invalid mem alloc param\n");
+		return -1;
+	}
+
 	cv_mem.length = size;
 	cv_mem.cache_en = !!cache_en;
+	cv_mem.share_to_dsp = !!share_to_dsp;
 
 	do {
 		rval = ioctl(priv->fd_cav, CAVALRY_ALLOC_MEMFD, &cv_mem);
@@ -292,6 +298,23 @@ int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
 	} while (0);
 
 	return rval;
+}
+
+int cavalry_mem_alloc_mfd(unsigned long size, int *fd,
+	void **pvirt, uint8_t cache_en)
+{
+	return alloc_cache_share_mfd(size, fd, pvirt, cache_en, 0);
+}
+
+int cavalry_mem_alloc_with_attr_mfd(unsigned long size, int *fd,
+	void **pvirt, struct cavalry_mem_attr *attr)
+{
+	if (attr == NULL) {
+		return alloc_cache_share_mfd(size, fd, pvirt, 0, 0);
+	} else {
+		return alloc_cache_share_mfd(size, fd, pvirt,
+			attr->cache_en, attr->share_to_dsp);
+	}
 }
 
 int cavalry_mem_free(unsigned long size, unsigned long phys, void *virt)
