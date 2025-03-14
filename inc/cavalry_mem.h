@@ -203,7 +203,6 @@ AMBA_API int cavalry_mem_free_mfd(IN unsigned long size,
 *
 * @param size size of memory
 * @param phys physical address
-* @param virt virtual address
 * @param clean the flag to clean cache.  0: turn off; 1: turn on.
 *                        Program Flow: 1.ARM write -> 2.clean cache -> 3.VP read
 * @param invalid the flag to invalid cache.  0: turn off; 1: turn on.
@@ -223,7 +222,6 @@ AMBA_API int cavalry_mem_sync_cache(
 * @param size size of memory
 * @param offset the offset base on file description of memory
 * @param fd the file description of memory
-* @param virt virtual address
 * @param clean the flag to clean cache.  0: turn off; 1: turn on.
 *                        Program Flow: 1.ARM write -> 2.clean cache -> 3.VP read
 * @param invalid the flag to invalid cache.  0: turn off; 1: turn on.
