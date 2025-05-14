@@ -46,7 +46,7 @@ INSTALL_TODIR_pkgconfig = libcavalrymem.pc /usr/lib/pkgconfig
 
 SRC_PATH = src
 CFLAGS += $(shell echo -DCONFIG_ARCH_$(AMBA_SOC) | tr [:lower:] [:upper:])
-CFLAGS += -Iinc
+CFLAGS += -Iinc -fvisibility=hidden
 
 .PHONY: all clean install
 
