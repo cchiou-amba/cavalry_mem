@@ -57,7 +57,7 @@ struct cavalry_mem_version {
 	char description[64];  /*!< Version description */
 };
 
-/*! @macros AMBA_API
+/*! \@macros AMBA_API
  * @brief API function attribute */
 #ifndef AMBA_API
 #define AMBA_API __attribute__((visibility("default")))
@@ -105,7 +105,7 @@ AMBA_API void cavalry_mem_exit(void);
  * This API allocates the memory from the CV user memory.
  * If process have not free memory before exit, driver will auto recycle these leaked memory.
  * Cache memory exist between ARM and DRAM.
- * Turn on @param cache_en can boost ARM process speed.
+ * Turn on param with cache_en can boost ARM process speed.
  *
  * @param psize the pointer to total size want allocate
  * @param pphys the pointer to physical address that return
@@ -122,7 +122,7 @@ AMBA_API int cavalry_mem_alloc(IN unsigned long *psize,
  * If process have not free memory before exit, driver DO NOT auto recycle these leaked memory.
  * Then it cause memory leakage issue. To avoid this issue, please use API cavalry_mem_alloc().
  * Cache memory exist between ARM and DRAM.
- * Turn on @param cache_en can boost ARM process speed.
+ * Turn on param with cache_en can boost ARM process speed.
  *
  * @param psize the pointer to total size want allocate
  * @param pphys the pointer to physical address that return
@@ -143,14 +143,14 @@ AMBA_API int cavalry_mem_alloc_persist(IN unsigned long *psize,
  * @param attr the attribute of memory, like cache, recycle, share to dsp.
  * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
-AMBA_API int cavalry_mem_alloc_with_attr(IN unsigned long size,
+AMBA_API int cavalry_mem_alloc_with_attr(IN unsigned long psize,
 	OUT unsigned long *pphys, OUT void **pvirt, IN struct cavalry_mem_attr *attr);
 
 /*!
  * This API allocates the memory from the CV user memory by supply file description.
  * This API always auto recycle leaked memory.
  * Cache memory exist between ARM and DRAM.
- * Turn on @param cache_en can boost ARM process speed.
+ * Turn on param with cache_en can boost ARM process speed.
  *
  * @param psize the pointer to total size want allocate
  * @param fd the pointer of memory file description that return
@@ -158,7 +158,7 @@ AMBA_API int cavalry_mem_alloc_with_attr(IN unsigned long size,
  * @param cache_en the flag to enable cached memory. 0: non-cache; 1: cache
  * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
-AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long size,
+AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long psize,
 	OUT int *fd, OUT void **pvirt, IN uint8_t cache_en);
 
 /*!
@@ -170,7 +170,7 @@ AMBA_API int cavalry_mem_alloc_mfd(IN unsigned long size,
  * @param attr the attribute of memory, like cache, recycle, share to dsp.
  * @return 0 = success, -1 = error.  -EBUSY if memory is busy, should retry alloc it.
  */
-AMBA_API int cavalry_mem_alloc_with_attr_mfd(IN unsigned long size,
+AMBA_API int cavalry_mem_alloc_with_attr_mfd(IN unsigned long psize,
 	OUT int *fd, OUT void **pvirt, IN struct cavalry_mem_attr *attr);
 
 /*!
