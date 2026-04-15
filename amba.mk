@@ -14,6 +14,10 @@
 ## In the absence of such an agreement, you agree to promptly notify and return
 ## this Software to Ambarella International LP
 ##
+## This file includes sample code and is only for internal testing and evaluation.  If you
+## distribute this sample code (whether in source, object, or binary code form), it will be
+## without any warranty or indemnity protection from Ambarella International LP or its affiliates.
+##
 ## THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
 ## INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF NON-INFRINGEMENT,
 ## MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
