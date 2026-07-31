@@ -185,6 +185,12 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 		if (!mem_node) {
 			perror("malloc cavalry_mem_node");
 			printf("malloc cavalry_mem_node error");
+			if (munmap(virt, cv_mem.length) < 0) {
+				perror("munmap cavalry mem after malloc fail");
+			}
+			if (ioctl(priv->fd_cav, CAVALRY_FREE_MEM, &cv_mem) < 0) {
+				perror("CAVALRY_FREE_MEM");
+			}
 			rval = -1;
 			break;
 		}
