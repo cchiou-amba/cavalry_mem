@@ -170,6 +170,11 @@ static int alloc_cache_recycle(unsigned long *psize, unsigned long *pphys,
 
 		virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_SHARED,
 			priv->fd_cav, cv_mem.offset);
+#if defined(__QNX__) || defined(__QNXNTO__)
+		if (virt == MAP_FAILED) {
+			virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, NOFD, 0);
+		}
+#endif
 		if (virt == MAP_FAILED) {
 			perror("mmap cavalry mem err");
 			printf("mem free since mmap err: phys: 0x%08lx, size: 0x%08lx\n",
@@ -285,6 +290,11 @@ static int alloc_cache_share_mfd(unsigned long size, int *fd,
 
 		virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_SHARED,
 			cv_mem.fd, 0);
+#if defined(__QNX__) || defined(__QNXNTO__)
+		if (virt == MAP_FAILED) {
+			virt = mmap(NULL, cv_mem.length, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, NOFD, 0);
+		}
+#endif
 		if (virt == MAP_FAILED) {
 			perror("mmap cavalry memfd err");
 			printf("mem free since mmapfd err: fd: %u, size: 0x%08lx\n",
